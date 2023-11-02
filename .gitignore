@@ -1,0 +1,6 @@
+.DS_STORE
+
+.next
+node_modules
+
+.env.local

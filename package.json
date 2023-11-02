@@ -1,0 +1,24 @@
+{
+  "name": "ai-meeting-assistant",
+  "version": "0.1.0",
+  "description": "Fancy Next.js app",
+  "scripts": {
+    "dev": "next --turbo",
+    "build": "next build",
+    "start": "next start",
+    "build:static": "next build && next out"
+  },
+  "dependencies": {
+    "@daily-co/daily-js": "^0.53.0",
+    "@daily-co/daily-react": "^0.15.0",
+    "classnames": "^2.3.2",
+    "next": "^14.0.1",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "react-timeago": "^7.2.0",
+    "recoil": "^0.7.7"
+  },
+  "devDependencies": {
+    "prettier": "^3.0.3"
+  }
+}
