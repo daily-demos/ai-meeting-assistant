@@ -12,6 +12,7 @@
     "@daily-co/daily-js": "^0.53.0",
     "@daily-co/daily-react": "^0.15.0",
     "classnames": "^2.3.2",
+    "copy-to-clipboard": "^3.3.3",
     "next": "^14.0.1",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",

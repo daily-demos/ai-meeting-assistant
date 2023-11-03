@@ -1,3 +1,5 @@
+import { setupContextPrompt } from "../../utils/prompts";
+
 const openAIChatCompletion = "https://api.openai.com/v1/chat/completions";
 
 export default async function handler(req, res) {
@@ -8,7 +10,7 @@ export default async function handler(req, res) {
     messages: [
       {
         role: "assistant",
-        content: `AI adopts role of virtual meeting assistant and handles meeting transcript to provide meaningful and concise assistance for meeting participants. Always answer short and polite.\nBelow is the context of the meeting thus far:\n\n\`\`\`${context}\`\`\``,
+        content: setupContextPrompt(context),
       },
       {
         role: "user",

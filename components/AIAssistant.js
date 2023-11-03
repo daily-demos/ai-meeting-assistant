@@ -24,30 +24,35 @@ export const AIAssistant = () => {
    * Holds messages from chatting with LLM.
    */
   const [chatHistory, setChatHistory] = useState([]);
+
   const inputRef = useRef(null);
+
+  /**
+   * In case a user has no username, we'll reference them as "Speaker 1", "Speaker 2", etc.
+   * This array holds session ids for all participants that have been transcribed.
+   * This way we can easily get the speaker number with speakerMap.current.indexOf(sessionId).
+   * The first null element makes sure we don't have "Speaker 0".
+   */
+  const speakers = useRef([null]);
   const { isTranscribing, startTranscription, stopTranscription } =
     useTranscription({
       onTranscriptionAppData: useCallback((ev) => {
         if (!ev.data.is_final) return;
+        if (!speakers.current.includes(ev.data.session_id))
+          speakers.current.push(ev.data.session_id);
         setContext((prev) => [
           ...prev,
           {
             text: ev.data.text,
             timestamp: ev.data.timestamp,
-            user_name: ev.data.user_name || "Guest",
+            user_name:
+              ev.data.user_name ||
+              `Speaker ${speakers.current.indexOf(ev.data.session_id)}`,
             is_summary: false,
           },
         ]);
       }),
     });
-
-  const handleStartTranscription = () => {
-    startTranscription();
-  };
-
-  const handleStopTranscription = () => {
-    stopTranscription();
-  };
 
   const handleAskAISubmit = async (ev) => {
     ev.preventDefault();
@@ -85,26 +90,29 @@ export const AIAssistant = () => {
   const summarize = useCallback(async (ctx) => {
     isSummarizing.current = true;
 
-    const response = await fetch("/api/summarize", {
-      method: "POST",
-      body: JSON.stringify({
-        context: getStructuredContext(ctx),
-      }),
-    });
-
-    const body = await response.json();
-
-    if (response.ok) {
-      setContext((prev) => {
-        const newPrev = prev.slice();
-        newPrev.splice(0, summarizeChunkSize, {
-          text: body.choices[0].message.content,
-          is_summary: true,
-        });
-        return newPrev;
+    try {
+      const response = await fetch("/api/summarize", {
+        method: "POST",
+        body: JSON.stringify({
+          context: getStructuredContext(ctx),
+        }),
       });
+
+      const body = await response.json();
+
+      if (response.ok) {
+        setContext((prev) => {
+          const newPrev = prev.slice();
+          newPrev.splice(0, summarizeChunkSize, {
+            text: body.choices[0].message.content,
+            is_summary: true,
+          });
+          return newPrev;
+        });
+      }
+    } finally {
+      isSummarizing.current = false;
     }
-    isSummarizing.current = false;
   }, []);
 
   useEffect(() => {
@@ -119,6 +127,15 @@ export const AIAssistant = () => {
     }, [context, stopTranscription]),
   );
 
+  const chatRef = useRef(null);
+
+  useEffect(() => {
+    chatRef.current?.scrollTo({
+      top: chatRef.current?.scrollHeight,
+      behavior: "smooth",
+    });
+  }, [chatHistory]);
+
   return (
     <div
       className={classNames("ai-assistant", {
@@ -127,9 +144,13 @@ export const AIAssistant = () => {
     >
       <div className="actions">
         {isTranscribing ? (
-          <button onClick={handleStopTranscription}>⏹️ Stop</button>
+          <button onClick={() => stopTranscription()}>
+            ⏹️ Stop transcription
+          </button>
         ) : (
-          <button onClick={handleStartTranscription}>⏺️ Start</button>
+          <button onClick={() => startTranscription()}>
+            ⏺️ Start transcription
+          </button>
         )}
         {chatHistory.length > 0 && (
           <button onClick={() => setChatHistory([])}>💨 Clear chat</button>
@@ -142,7 +163,7 @@ export const AIAssistant = () => {
       </div>
       {(isTranscribing || chatHistory.length > 0 || context.length > 0) && (
         <div className="wrapper">
-          <div className="stream">
+          <div className="stream" ref={chatRef}>
             {chatHistory.map((msg) => (
               <div
                 key={`${msg.role}${msg.date.toString()}`}
@@ -186,6 +207,11 @@ export const AIAssistant = () => {
         .ai-assistant > button {
           align-self: center;
         }
+        .actions {
+          display: flex;
+          gap: 4px;
+          justify-content: center;
+        }
         .wrapper {
           border: 1px solid var(--border);
           border-radius: 4px;
@@ -214,8 +240,8 @@ export const AIAssistant = () => {
           margin-left: 2rem;
         }
         .stream .message.answer {
-          background: #1bebb9;
-          color: #fff;
+          background: var(--highlight);
+          color: #000;
           margin-right: 2rem;
           white-space: pre-wrap;
         }

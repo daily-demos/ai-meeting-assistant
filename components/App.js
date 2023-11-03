@@ -2,13 +2,16 @@ import DailyIframe from "@daily-co/daily-js";
 import { DailyAudio, DailyProvider } from "@daily-co/daily-react";
 import { useRef, useState } from "react";
 import { AIAssistant } from "./AIAssistant";
+import copy from "copy-to-clipboard";
 
 export default function App() {
   const [url, setUrl] = useState("");
   const [daily, setDaily] = useState(null);
+  const [isJoining, setIsJoining] = useState(false);
   const wrapperRef = useRef(null);
 
   const handleJoinClick = async () => {
+    setIsJoining(true);
     const response = await fetch("/api/create-room", {
       method: "POST",
     });
@@ -26,6 +29,7 @@ export default function App() {
       setDaily(frame);
       await frame.join();
     }
+    setIsJoining(false);
   };
 
   const handleLeaveClick = async () => {
@@ -35,28 +39,43 @@ export default function App() {
     setUrl("");
   };
 
+  const [copied, setCopied] = useState(false);
+  const handleCopyURL = () => {
+    if (copy(url)) {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 3000);
+    }
+  };
+
   return (
     <DailyProvider callObject={daily}>
       <div className="App">
         <h1>Daily AI Meeting Assistant Demo</h1>
-        <p>
-          Enter your username, join the call and start speaking. The call is
-          automatically transcribed.
-        </p>
-        <p>
-          Once there's enough context, you can ask the AI for a summary or other
-          information, based on the spoken words.
-        </p>
+        {url ? (
+          <>
+            <div className="actions">
+              <button disabled={copied} onClick={handleCopyURL}>
+                {copied ? "✅ Copied" : "📋 Copy room URL"}
+              </button>
+              <button onClick={handleLeaveClick}>🚪 Leave</button>
+            </div>
+          </>
+        ) : (
+          <>
+            <p>Join the call and start the transcription.</p>
+            <p>
+              Once there's enough context, you can ask the AI for a summary or
+              other information, based on the spoken words.
+            </p>
+            <div>
+              <button disabled={isJoining} onClick={handleJoinClick}>
+                Join a call
+              </button>
+            </div>
+          </>
+        )}
         <div className="container">
           <div className="call">
-            {url ? (
-              <>
-                <strong>{url}</strong>
-                <button onClick={handleLeaveClick}>Leave</button>
-              </>
-            ) : (
-              <button onClick={handleJoinClick}>Join a call</button>
-            )}
             <div id="frame" ref={wrapperRef} />
           </div>
           {url && <AIAssistant />}
@@ -75,6 +94,7 @@ export default function App() {
           --border: #2b3f56;
           --text: #fff;
           --highlight: #feaa2c;
+          --highlight50: #feaa2caa;
 
           height: 100%;
           margin: 0;
@@ -85,6 +105,18 @@ export default function App() {
         body {
           background: var(--bg);
           color: var(--text);
+          font-family:
+            -apple-system,
+            BlinkMacSystemFont,
+            Segoe UI,
+            Roboto,
+            Oxygen,
+            Ubuntu,
+            Cantarell,
+            Fira Sans,
+            Droid Sans,
+            Helvetica Neue,
+            sans-serif;
           height: 100%;
           width: 100%;
           margin: 0;
@@ -93,6 +125,24 @@ export default function App() {
 
         #__next {
           height: 100%;
+        }
+
+        button {
+          background: var(--highlight);
+          border: none;
+          border-radius: 4px;
+          color: var(--text);
+          cursor: pointer;
+          outline: 0 solid var(--highlight50);
+          padding: 4px 8px;
+        }
+        button:not([disabled]):hover,
+        button:not([disabled]):focus-visible {
+          outline-width: 2px;
+        }
+        button[disabled] {
+          cursor: default;
+          opacity: 0.5;
         }
       `}</style>
       <style jsx>{`
@@ -106,6 +156,11 @@ export default function App() {
           position: relative;
           text-align: center;
           width: 100%;
+        }
+        .actions {
+          display: flex;
+          gap: 4px;
+          justify-content: center;
         }
         .container {
           align-items: center;
