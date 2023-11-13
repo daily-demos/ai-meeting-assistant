@@ -9,9 +9,9 @@ from typing import Callable, Protocol
 import polling2
 import requests
 from daily import Daily, EventHandler, CallClient
-from config import Config
-from llm.openai_summarizer import OpenAISummarizer
-from llm.summarizer import Summarizer
+from server.config import Config
+from server.llm.openai_summarizer import OpenAISummarizer
+from server.llm.summarizer import Summarizer
 
 
 @dataclasses.dataclass

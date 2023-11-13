@@ -1,15 +1,11 @@
 import dataclasses
-import json
-from io import StringIO, BytesIO
-from os import PathLike
 from typing import Literal
 
 from openai import OpenAI
-from openai.types.beta import Assistant, Thread
 from openai.types.chat import ChatCompletionMessageParam, ChatCompletionSystemMessageParam, \
     ChatCompletionUserMessageParam
 
-from llm.summarizer import Summarizer
+from server.llm.summarizer import Summarizer
 
 @dataclasses.dataclass
 class Context:

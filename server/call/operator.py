@@ -1,9 +1,8 @@
-import gc
 import threading
 
 from daily import Daily
-from config import Config
-from call.session import Session
+from server.config import Config
+from server.call.session import Session
 
 
 class Operator():
