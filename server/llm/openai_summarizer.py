@@ -18,6 +18,9 @@ class OpenAISummarizer(Summarizer):
     _model_name: str = None
     # For now, just store context in memory.
     _context: list[ChatCompletionMessageParam] = []
+    _default_prompt = ChatCompletionSystemMessageParam(content="You are a helpful meeting summarization assistant. Your job"
+                                                           "is to take meeting transcripts and produce useful "
+                                                           "summaries.", role="system")
 
 
     def __init__(self, api_key: str, model_name: str="gpt-3.5-turbo"):
@@ -28,20 +31,16 @@ class OpenAISummarizer(Summarizer):
             api_key=api_key,
         )
 
-        system_msg = ChatCompletionSystemMessageParam(content="You are a helpful meeting summarization assistant. Your job"
-                                                           "is to take meeting transcripts and produce useful "
-                                                           "summaries.", role="system")
-        self._context.append(system_msg)
-
     def register_new_context(self, new_text: str):
         user_msg = ChatCompletionUserMessageParam(content=new_text, role="user")
         self._context.append(user_msg)
 
-    def summarize(self) -> str:
+    def query(self, custom_query: str) -> str:
+        messages = [self._default_prompt] + self._context
         res = self._client.chat.completions.create(
             model=self._model_name,
-            messages=self._context,
+            messages=messages,
             temperature=0,
-            max_tokens=1024
+        #    max_tokens=1024
         )
         return res.model_dump_json()

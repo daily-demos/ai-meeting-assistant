@@ -9,5 +9,5 @@ class Summarizer(ABC):
         """Returns a transcription string"""
 
     @abstractmethod
-    def summarize(self) -> str:
+    def query(self, custom_query: str) -> str:
         """Returns a transcription string"""

@@ -5,8 +5,8 @@ import traceback
 from quart_cors import cors
 from quart import Quart, jsonify, Response, request
 
-from config import Config
-from call.operator import Operator
+from server.config import Config
+from server.call.operator import Operator
 
 app = Quart(__name__)
 
@@ -37,7 +37,7 @@ async def create_session():
     except Exception as e:
         return process_error('failed to create session', 500, e)
 
-@app.route('/summarize', methods=['GET'])
+@app.route('/summary', methods=['GET'])
 async def summarize():
     """Queries the loaded index"""
     room_url = request.args.get("room_url")

@@ -1,9 +1,12 @@
+from __future__ import annotations
+
 import asyncio
 import dataclasses
 import json
 import threading
 import time
 from asyncio import Future
+from concurrent.futures import ThreadPoolExecutor
 from typing import Callable, Protocol
 
 import polling2
@@ -26,6 +29,7 @@ class Participant:
     session_id: str = None
     user_name: str = None
 
+
 class OnShutdown(Protocol):
     def __call__(self, id: str, room_url: str) -> None: ...
 
@@ -33,7 +37,7 @@ class OnShutdown(Protocol):
 class Session(EventHandler):
     _config: Config
     _daily: Daily
-    _task: Future
+    _executor: ThreadPoolExecutor
     _room: Room
     _id: str
     _on_shutdown: Callable[[str, str], None]
@@ -45,6 +49,7 @@ class Session(EventHandler):
         self._config = config
         self._on_shutdown = on_shutdown
         self._summarizer = OpenAISummarizer(config.openai_api_key)
+        self._executor = ThreadPoolExecutor(max_workers=5)
         self.init()
 
     @property
@@ -65,7 +70,7 @@ class Session(EventHandler):
         loop = asyncio.get_event_loop()
         self._call_client = CallClient(event_handler=self)
         print("pre-loop thread count", threading.active_count())
-        task = loop.run_in_executor(None, self.start_session)
+        task = loop.run_in_executor(self._executor, self.start_session)
         print("post-loop thread count", threading.active_count())
         self._task = task
         return room.url
@@ -158,8 +163,24 @@ class Session(EventHandler):
         meeting_token = res.json()['token']
         return meeting_token
 
-    def generate_summary(self):
-        return self._summarizer.summarize()
+    def generate_summary(self, recipient_session_id: str = None, custom_query: str = None) -> [str | Future]:
+        answer = self._summarizer.query(custom_query)
+
+        # If no recipient is provided, this was probably an HTTP request through the operator
+        # Just return the answer string in that case.
+        if not recipient_session_id:
+            return answer
+
+        # If a recipient is provided, ths was likely a request through Daily's app message events.
+        # Send the answer as an event as well.
+        self._call_client.send_app_message({
+            "kind": "assist",
+            "data": answer
+        }, participant=recipient_session_id, completion=self.on_message_send)
+
+    def on_message_send(self, error: str = None):
+        if error:
+            print("Failed to send message", error)
 
     def on_joined_meeting(self, join_data, error):
         print("Session joined meeting:", join_data, error)
@@ -176,11 +197,18 @@ class Session(EventHandler):
         text = message["text"]
         self._summarizer.register_new_context(f"{user_name} said '{text}'")
 
-
     def on_app_message(self,
-                       message,
-                       sender):
+                       message: str,
+                       sender: str):
         print("app-message")
+        msg = json.loads(message)
+        kind = msg["kind"]
+        if not kind or kind != "assist":
+            return
+
+        query = msg["query"]
+        loop = asyncio.get_event_loop()
+        loop.run_in_executor(self._executor, self.generate_summary, sender, query)
 
     def on_participant_left(self,
                             participant,
@@ -217,6 +245,7 @@ class Session(EventHandler):
         print(f"Session {self._id} shutting down. Active threads:", threading.active_count())
         self._call_client.leave()
         print(f"Session {self._id} invoked leave")
+        self._executor.shutdown(wait=False, cancel_futures=True)
         if self._on_shutdown:
             print(f"Session {self._id} invoking shutdown callback, active threads:", threading.active_count())
             self._on_shutdown(self._id, self._room.url)
