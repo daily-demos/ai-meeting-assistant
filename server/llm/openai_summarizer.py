@@ -36,7 +36,10 @@ class OpenAISummarizer(Summarizer):
         self._context.append(user_msg)
 
     def query(self, custom_query: str) -> str:
-        messages = [self._default_prompt] + self._context
+        query = self._default_prompt
+        if custom_query:
+            query = ChatCompletionSystemMessageParam(content=custom_query, role="system")
+        messages = [query] + self._context
         res = self._client.chat.completions.create(
             model=self._model_name,
             messages=messages,
