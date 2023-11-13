@@ -29,24 +29,36 @@ class OpenAIAssistant(Assistant):
         )
 
     def register_new_context(self, new_text: str, metadata: list[str] = None):
+        """Registers new context (usually a transcription line)."""
         content = self._compile_ctx_content(new_text, metadata)
         user_msg = ChatCompletionUserMessageParam(content=content, role="user")
         self._context.append(user_msg)
 
     def query(self, custom_query: str = None) -> str:
+        """Submits a query to OpenAI with the stored context if one is provided.
+        If a query is not provided, uses the default."""
         query = self._default_prompt
         if custom_query:
-            query = ChatCompletionSystemMessageParam(content=custom_query, role="system")
+            query = ChatCompletionSystemMessageParam(
+                content=custom_query, role="system")
         messages = [query] + self._context
-        res = self._client.chat.completions.create(
-            model=self._model_name,
-            messages=messages,
-            temperature=0,
-            #    max_tokens=1024
-        )
-        return res.model_dump_json()
+        try:
+            res = self._client.chat.completions.create(
+                model=self._model_name,
+                messages=messages,
+                temperature=0,
+                #    max_tokens=1024
+            )
+            for choice in res.choices:
+                if choice["finish_reason"] == "stop":
+                    answer = choice["message"]["content"]
+                    return answer
+            raise Exception("No usable choice found in OpenAI response")
+        except Exception as e:
+            raise Exception(f"Failed to query OpenAI: {e}") from e
 
-    def _compile_ctx_content(self, new_text: str, metadata: list[str] = None) -> str:
+    def _compile_ctx_content(self, new_text: str,
+                             metadata: list[str] = None) -> str:
         content = ""
         if metadata:
             content += f"[{' | '.join(metadata)}] "

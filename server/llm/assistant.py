@@ -5,7 +5,8 @@ from abc import ABC, abstractmethod
 class Assistant(ABC):
     """Abstract class defining methods that should be implemented by any assistant"""
     @abstractmethod
-    def register_new_context(self, new_text: str, name: list[str] = None) -> str:
+    def register_new_context(self, new_text: str,
+                             name: list[str] = None) -> str:
         """Registers new context (usually a transcription line)."""
 
     @abstractmethod

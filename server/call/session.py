@@ -37,6 +37,7 @@ class Participant:
 
 class OnShutdown(Protocol):
     """Class that defines the signature of a callback invoked when a session is destroyed"""
+
     def __call__(self, id: str, room_url: str) -> None: ...
 
 
@@ -51,14 +52,15 @@ class Session(EventHandler):
     _on_shutdown: Callable[[str, str], None]
     _assistant: Assistant
 
-    def __init__(self, config: Config, on_shutdown: OnShutdown):
+    def __init__(self, config: Config, on_shutdown: OnShutdown,
+                 room_duration_mins: int = None):
         print("Initializing session")
         super().__init__()
         self._config = config
         self._on_shutdown = on_shutdown
         self._assistant = OpenAIAssistant(config.openai_api_key)
         self._executor = ThreadPoolExecutor(max_workers=5)
-        self.init()
+        self.init(room_duration_mins)
 
     @property
     def room_url(self) -> str:
@@ -68,8 +70,9 @@ class Session(EventHandler):
     def id(self) -> str:
         return self._id
 
-    def init(self) -> str:
-        room = self.create_room()
+    def init(self, room_duration_mins: int = None) -> str:
+        """Creates a Daily room and uses it to start a session"""
+        room = self.create_room(room_duration_mins)
         self._room = room
         loop = asyncio.get_event_loop()
         self._call_client = CallClient(event_handler=self)
@@ -80,10 +83,14 @@ class Session(EventHandler):
         return room.url
 
     def start_session(self):
-        # Start polling for participant count, only move on
-        # when there is at least once participant in the room.
+        """Waits for at least one person to join the associated Daily room,
+        then joins, starts transcription, and begins registering context."""
         print("Session starting polling for participation")
-        polling2.poll(target=self.get_participant_count, check_success=lambda count: count > 0, step=0.5, timeout=300)
+        polling2.poll(
+            target=self.get_participant_count,
+            check_success=lambda count: count > 0,
+            step=0.5,
+            timeout=300)
         print("Session detected at least one participant - joining")
         # There is at least one participant in the room - join with the bot
         call_client = CallClient(event_handler=self)
@@ -91,10 +98,15 @@ class Session(EventHandler):
         self._call_client = call_client
         room = self._room
         print("Session joining room")
-        call_client.join(room.url, room.token, completion=self.on_joined_meeting)
+        call_client.join(
+            room.url,
+            room.token,
+            completion=self.on_joined_meeting)
         print("Joined call? Returning")
 
     def get_participant_count(self) -> int:
+        """Gets the current number of participants in the room
+        using Daily's REST API"""
         api_key = self._config.daily_api_key
         api_url = self._config.daily_api_url
 
@@ -111,14 +123,19 @@ class Session(EventHandler):
         presence = res.json()
         return presence['total_count']
 
-    def create_room(self) -> Room:
+    def create_room(self, room_duration_mins: int = None) -> Room:
+        """Creates a Daily room on the configured domain."""
         api_key = self._config.daily_api_key
         api_url = self._config.daily_api_url
 
         url = f'{api_url}/rooms'
         headers = {'Authorization': f'Bearer {api_key}'}
 
-        duration = self._config.room_duration_mins
+        duration = room_duration_mins
+        # Fall back on configured default if needed
+        if not duration:
+            duration = self._config.room_duration_mins
+
         exp = time.time() + duration * 60
 
         res = requests.post(url,
@@ -145,6 +162,7 @@ class Session(EventHandler):
         return Room(url, token, name)
 
     def get_meeting_token(self, room_name: str, token_expiry: float = None):
+        """Retrieves an owner meeting token for the given Daily room."""
         api_url = self._config.daily_api_url
         api_key = self._config.daily_api_key
 
@@ -167,7 +185,10 @@ class Session(EventHandler):
         meeting_token = res.json()['token']
         return meeting_token
 
-    def generate_summary(self, recipient_session_id: str = None, custom_query: str = None) -> [str | Future]:
+    def query_assistant(self, recipient_session_id: str = None,
+                        custom_query: str = None) -> [str | Future]:
+        """Queries the configured assistant with either the given query, or the
+        configured assistant's default"""
         answer = self._assistant.query(custom_query)
 
         # If no recipient is provided, this was probably an HTTP request through the operator
@@ -180,14 +201,15 @@ class Session(EventHandler):
         self._call_client.send_app_message({
             "kind": "assist",
             "data": answer
-        }, participant=recipient_session_id, completion=self.on_message_send)
+        }, participant=recipient_session_id, completion=self.on_app_message_sent)
 
-    def on_message_send(self, error: str = None):
+    def on_app_message_sent(self, error: str = None):
+        """Callback invoked when an app message is sent."""
         if error:
             print("Failed to send message", error)
 
     def on_joined_meeting(self, join_data, error):
-        print("Session joined meeting:", join_data, error)
+        """Callback invoked when the bot has joined the Daily room."""
         if error:
             raise Exception("failed to join meeting", error)
         self._id = join_data["participants"]["local"]["id"]
@@ -196,6 +218,7 @@ class Session(EventHandler):
         self.set_session_data(self._room.name, self._id)
 
     def on_transcription_message(self, message):
+        """Callback invoked when a transcription message is received."""
         print("transcription message", message)
         user_name = message["user_name"]
         text = message["text"]
@@ -206,7 +229,7 @@ class Session(EventHandler):
     def on_app_message(self,
                        message: str,
                        sender: str):
-        print("app-message")
+        """Callback invoked when a Daily app message is received."""
         msg = json.loads(message)
         kind = msg["kind"]
         if not kind or kind != "assist":
@@ -214,18 +237,24 @@ class Session(EventHandler):
 
         query = msg["query"]
         loop = asyncio.get_event_loop()
-        loop.run_in_executor(self._executor, self.generate_summary, sender, query)
+        loop.run_in_executor(
+            self._executor,
+            self.query_assistant,
+            sender,
+            query)
 
     def on_participant_left(self,
                             participant,
                             reason):
-
+        """Callback invoked when a participant leaves the Daily room."""
         count = self._call_client.participant_counts()['present']
         print("Session handling participant left. Participant count: ", count)
         if count == 1:
+            # Should probably wait a few minutes here in case someone rejoins
             self.shutdown()
 
     def set_session_data(self, room_name: str, bot_id: str):
+        """Sets the bot session ID in the Daily room's session data."""
         print("Session setting bot id in session data: ", bot_id)
         api_key = self._config.daily_api_key
         api_url = self._config.daily_api_url
@@ -248,10 +277,16 @@ class Session(EventHandler):
             )
 
     def shutdown(self):
-        print(f"Session {self._id} shutting down. Active threads:", threading.active_count())
+        """Shuts down the session, leaving the Daily room, invoking the shutdown callback,
+        and cancelling any pending Futures"""
+        print(
+            f"Session {self._id} shutting down. Active threads:",
+            threading.active_count())
         self._call_client.leave()
         print(f"Session {self._id} invoked leave")
         self._executor.shutdown(wait=False, cancel_futures=True)
         if self._on_shutdown:
-            print(f"Session {self._id} invoking shutdown callback, active threads:", threading.active_count())
+            print(
+                f"Session {self._id} invoking shutdown callback, active threads:",
+                threading.active_count())
             self._on_shutdown(self._id, self._room.url)

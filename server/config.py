@@ -2,6 +2,7 @@
 third-party API keys."""
 import os
 
+
 class Config:
     """Class representing third-party API keys and other settings."""
     _daily_api_key: str = None
@@ -40,4 +41,3 @@ class Config:
     @property
     def room_duration_mins(self) -> int:
         return self._room_duration_mins
-
