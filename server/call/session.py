@@ -7,6 +7,7 @@ import threading
 import time
 from asyncio import Future
 from concurrent.futures import ThreadPoolExecutor
+from datetime import datetime
 from typing import Callable, Protocol
 
 import polling2
@@ -195,7 +196,9 @@ class Session(EventHandler):
         print("transcription message", message)
         user_name = message["user_name"]
         text = message["text"]
-        self._summarizer.register_new_context(f"{user_name} said '{text}'")
+        timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')
+        metadata = [user_name, 'voice', timestamp]
+        self._summarizer.register_new_context(text, metadata)
 
     def on_app_message(self,
                        message: str,

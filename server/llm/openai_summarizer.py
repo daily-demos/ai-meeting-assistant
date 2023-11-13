@@ -31,8 +31,9 @@ class OpenAISummarizer(Summarizer):
             api_key=api_key,
         )
 
-    def register_new_context(self, new_text: str):
-        user_msg = ChatCompletionUserMessageParam(content=new_text, role="user")
+    def register_new_context(self, new_text: str, metadata: list[str] = None):
+        content = self._compile_ctx_content(new_text, metadata)
+        user_msg = ChatCompletionUserMessageParam(content=content, role="user")
         self._context.append(user_msg)
 
     def query(self, custom_query: str = None) -> str:
@@ -47,3 +48,10 @@ class OpenAISummarizer(Summarizer):
         #    max_tokens=1024
         )
         return res.model_dump_json()
+
+    def _compile_ctx_content(self, new_text: str, metadata: list[str] = None) -> str:
+        content = ""
+        if metadata:
+            content += f"[{' | '.join(metadata)}] "
+        content += new_text
+        return content

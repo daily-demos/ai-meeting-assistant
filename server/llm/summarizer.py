@@ -5,7 +5,7 @@ from abc import ABC, abstractmethod
 class Summarizer(ABC):
     """Abstract class defining methods that should be implemented by any summarizer"""
     @abstractmethod
-    def register_new_context(self, new_text: str) -> str:
+    def register_new_context(self, new_text: str, name: list[str] = None) -> str:
         """Returns a transcription string"""
 
     @abstractmethod
