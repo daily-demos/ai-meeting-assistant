@@ -1,3 +1,5 @@
+"""Module which keeps track of all ongoing sessions and provides
+querying functionality to HTTP requesters."""
 import threading
 
 from daily import Daily

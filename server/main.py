@@ -1,4 +1,4 @@
-"""This module defines all the routes for the filler-word removal server."""
+"""This module defines all the routes for the Daily AI assistant server."""
 import sys
 import traceback
 
@@ -19,15 +19,15 @@ operator = Operator(config)
 
 @app.after_serving
 async def shutdown():
-    """Stop all background tasks and threads"""
+    """Stop all background tasks and cancel Futures"""
     operator.shutdown()
     for task in app.background_tasks:
         task.cancel()
 
 @app.route('/session', methods=['POST'])
 async def create_session():
-    """Queries the loaded index"""
-
+    """Creates a session, which includes creating a Daily room
+    and returning its URL to the caller."""
     try:
         room_url = operator.create_session()
 
@@ -39,7 +39,7 @@ async def create_session():
 
 @app.route('/summary', methods=['GET'])
 async def summarize():
-    """Queries the loaded index"""
+    """Creates and returns a summary of the meeting at the provided room URL."""
     room_url = request.args.get("room_url")
     if not room_url:
         return process_error('room_url query parameter must be provided', 400)

@@ -1,3 +1,4 @@
+"""Module that defines an OpenAI assistant."""
 import dataclasses
 from typing import Literal
 
@@ -5,25 +6,21 @@ from openai import OpenAI
 from openai.types.chat import ChatCompletionMessageParam, ChatCompletionSystemMessageParam, \
     ChatCompletionUserMessageParam
 
-from server.llm.summarizer import Summarizer
-
-@dataclasses.dataclass
-class Context:
-    role: Literal["system", "user", "assistant"]
-    content: str
+from server.llm.assistant import Assistant
 
 
-class OpenAISummarizer(Summarizer):
+class OpenAIAssistant(Assistant):
+    """Class that implements assistant features using the OpenAI API"""
     _client: OpenAI = None
     _model_name: str = None
     # For now, just store context in memory.
     _context: list[ChatCompletionMessageParam] = []
-    _default_prompt = ChatCompletionSystemMessageParam(content="You are a helpful meeting summarization assistant. Your job"
-                                                           "is to take meeting transcripts and produce useful "
-                                                           "summaries.", role="system")
+    _default_prompt = ChatCompletionSystemMessageParam(
+        content="You are a helpful meeting summarization assistant. Your job"
+                "is to take meeting transcripts and produce useful "
+                "summaries.", role="system")
 
-
-    def __init__(self, api_key: str, model_name: str="gpt-3.5-turbo"):
+    def __init__(self, api_key: str, model_name: str = "gpt-3.5-turbo"):
         if not api_key:
             raise Exception("OpenAI API key not provided, but required.")
         self._model_name = model_name
@@ -45,7 +42,7 @@ class OpenAISummarizer(Summarizer):
             model=self._model_name,
             messages=messages,
             temperature=0,
-        #    max_tokens=1024
+            #    max_tokens=1024
         )
         return res.model_dump_json()
 

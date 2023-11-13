@@ -1,3 +1,5 @@
+"""Class representing a single meeting happening within a Daily room.
+This is responsible for all Daily operations."""
 from __future__ import annotations
 
 import asyncio
@@ -14,12 +16,13 @@ import polling2
 import requests
 from daily import Daily, EventHandler, CallClient
 from server.config import Config
-from server.llm.openai_summarizer import OpenAISummarizer
-from server.llm.summarizer import Summarizer
+from server.llm.openai_assistant import OpenAIAssistant
+from server.llm.assistant import Assistant
 
 
 @dataclasses.dataclass
 class Room:
+    """Class representing a Daily video call room"""
     url: str = None
     token: str = None
     name: str = None
@@ -27,29 +30,33 @@ class Room:
 
 @dataclasses.dataclass
 class Participant:
+    """Class representing a Daily participant"""
     session_id: str = None
     user_name: str = None
 
 
 class OnShutdown(Protocol):
+    """Class that defines the signature of a callback invoked when a session is destroyed"""
     def __call__(self, id: str, room_url: str) -> None: ...
 
 
 class Session(EventHandler):
+    """Class representing a single meeting happening within a Daily room."""
+    _call_client: CallClient
     _config: Config
     _daily: Daily
     _executor: ThreadPoolExecutor
     _room: Room
     _id: str
     _on_shutdown: Callable[[str, str], None]
-    _summarizer: Summarizer
+    _assistant: Assistant
 
     def __init__(self, config: Config, on_shutdown: OnShutdown):
         print("Initializing session")
         super().__init__()
         self._config = config
         self._on_shutdown = on_shutdown
-        self._summarizer = OpenAISummarizer(config.openai_api_key)
+        self._assistant = OpenAIAssistant(config.openai_api_key)
         self._executor = ThreadPoolExecutor(max_workers=5)
         self.init()
 
@@ -60,10 +67,6 @@ class Session(EventHandler):
     @property
     def id(self) -> str:
         return self._id
-
-    @property
-    def destroyed(self) -> bool:
-        return self._destroyed
 
     def init(self) -> str:
         room = self.create_room()
@@ -165,7 +168,7 @@ class Session(EventHandler):
         return meeting_token
 
     def generate_summary(self, recipient_session_id: str = None, custom_query: str = None) -> [str | Future]:
-        answer = self._summarizer.query(custom_query)
+        answer = self._assistant.query(custom_query)
 
         # If no recipient is provided, this was probably an HTTP request through the operator
         # Just return the answer string in that case.
@@ -198,7 +201,7 @@ class Session(EventHandler):
         text = message["text"]
         timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')
         metadata = [user_name, 'voice', timestamp]
-        self._summarizer.register_new_context(text, metadata)
+        self._assistant.register_new_context(text, metadata)
 
     def on_app_message(self,
                        message: str,

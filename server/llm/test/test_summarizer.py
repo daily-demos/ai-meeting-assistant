@@ -1,11 +1,11 @@
 import unittest
 
-from server.llm.openai_summarizer import OpenAISummarizer
+from server.llm.openai_assistant import OpenAIAssistant
 
 
-class OpenAISummarizerTests(unittest.TestCase):
+class OpenAIAssistantTests(unittest.TestCase):
     def test_compile_ctx_content(self):
-        oai = OpenAISummarizer("fake_key")
+        oai = OpenAIAssistant("fake_key")
         msg = "a test msg"
         metadata = ["Liza", 'voice', "2023-11-13 23:24:10"]
         got_content = oai._compile_ctx_content(msg, metadata)
