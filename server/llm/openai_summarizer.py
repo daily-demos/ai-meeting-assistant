@@ -35,7 +35,7 @@ class OpenAISummarizer(Summarizer):
         user_msg = ChatCompletionUserMessageParam(content=new_text, role="user")
         self._context.append(user_msg)
 
-    def query(self, custom_query: str) -> str:
+    def query(self, custom_query: str = None) -> str:
         query = self._default_prompt
         if custom_query:
             query = ChatCompletionSystemMessageParam(content=custom_query, role="system")
