@@ -65,8 +65,7 @@ class Session(EventHandler):
         self.init(room_duration_mins)
         self._logger = self.create_logger(self._room.name)
         self._assistant = OpenAIAssistant(config.openai_api_key, config.openai_model_name, self._logger)
-        self._logger.info("HELLO WORLD")
-        self._logger.info("HELLO AGAIN Self: %s, Assistant: %s", self, self._assistant)
+        self._logger.info("Initialized session")
 
     @property
     def room_url(self) -> str:
@@ -302,13 +301,13 @@ class Session(EventHandler):
         logger.setLevel(logging.DEBUG)
 
         # Create a file handler
-        file_handler = logging.FileHandler(self._config.get_log_file_path(self._room.name))
-
-        # Set the logging format
-        formatter = logging.Formatter('%(asctime)s -[%(threadName)s] - %(levelname)s - %(message)s')
-        file_handler.setFormatter(formatter)
-
-        # Add the file handler to the logger
-        logger.addHandler(file_handler)
+        log_file_path = self._config.get_log_file_path(self._room.name)
+        if log_file_path:
+            file_handler = logging.FileHandler(self._config.get_log_file_path(self._room.name))
+            # Set the logging format
+            formatter = logging.Formatter('%(asctime)s -[%(threadName)s] - %(levelname)s - %(message)s')
+            file_handler.setFormatter(formatter)
+            # Add the file handler to the logger
+            logger.addHandler(file_handler)
 
         return logger

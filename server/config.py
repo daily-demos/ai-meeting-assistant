@@ -1,5 +1,7 @@
 """Module providing primary configuration variables, such as
 third-party API keys."""
+from __future__ import annotations
+
 import os
 
 
@@ -17,7 +19,7 @@ class Config:
                  openai_api_key=os.getenv("OPENAI_API_KEY"),
                  openai_model_name=os.getenv("OPENAI_MODEL_NAME"),
                  room_duration_mins=os.getenv("ROOM_DURATION_MINUTES"),
-                 log_dir = None
+                 log_dir_name: str = None
                  ):
         self._daily_api_key = daily_api_key
         self._openai_api_key = openai_api_key
@@ -31,9 +33,8 @@ class Config:
             room_duration_mins = 15
         self._room_duration_mins = int(room_duration_mins)
 
-        if not log_dir:
-            self._log_dir_path = os.path.abspath(
-                deduce_dir_name("LOG_DIR"))
+        if log_dir_name:
+            self._log_dir_path = os.path.abspath(log_dir_name)
 
     @property
     def daily_api_key(self) -> str:
@@ -56,24 +57,18 @@ class Config:
         return self._room_duration_mins
 
     @property
-    def log_dir_path(self) -> str:
+    def log_dir_path(self) -> str | None:
         return self._log_dir_path
 
-    def get_log_file_path(self, room_name: str) -> str:
+    def get_log_file_path(self, room_name: str) -> str | None:
         return os.path.join(self.log_dir_path, f"{room_name}.log")
 
     def ensure_dirs(self):
         """Creates required file directories if they do not already exist."""
-        ensure_dir(self._log_dir_path)
+        if self._log_dir_path:
+            ensure_dir(self._log_dir_path)
 
 def ensure_dir(dir_path: str):
     """Creates directory at the given path if it does not already exist."""
     if not os.path.exists(dir_path):
         os.makedirs(dir_path)
-
-
-def deduce_dir_name(env_name: str):
-    d = os.getenv(env_name)
-    if not d:
-        d = env_name
-    return d
