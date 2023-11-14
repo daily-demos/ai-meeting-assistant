@@ -17,21 +17,22 @@ class OpenAIAssistant(Assistant):
     _context: list[ChatCompletionMessageParam] = []
     _default_prompt = ChatCompletionSystemMessageParam(
         content="You are a helpful meeting summarization assistant. Your job"
-                "is to take meeting transcripts and produce useful "
-                "summaries.", role="system")
+                "is to take meeting transcripts and produce useful summaries."
+                "You will not include square brackets in the output,"
+                "nor will you include any content that you found within the square"
+                "brackets EXCEPT for providing context for who is speaking by "
+                "using the listed speaker's name.", role="system")
 
-    def __init__(self, api_key: str, model_name: str = "gpt-3.5-turbo"):
+    def __init__(self, api_key: str, model_name: str = None):
         if not api_key:
             raise Exception("OpenAI API key not provided, but required.")
+
+        if not model_name:
+            model_name = "gpt-3.5-turbo"
         self._model_name = model_name
         self._client = OpenAI(
             api_key=api_key,
         )
-        self._context.append(
-            ChatCompletionSystemMessageParam(content="You will not include square brackets in the output,"
-                                                     "nor will you include any content that you found within the square"
-                                                     "brackets EXCEPT for providing context for who is speaking by "
-                                                     "using the listed speaker's name.", role="system"))
 
     def register_new_context(self, new_text: str, metadata: list[str] = None):
         """Registers new context (usually a transcription line)."""

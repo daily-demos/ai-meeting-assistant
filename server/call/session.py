@@ -58,7 +58,7 @@ class Session(EventHandler):
         super().__init__()
         self._config = config
         self._on_shutdown = on_shutdown
-        self._assistant = OpenAIAssistant(config.openai_api_key)
+        self._assistant = OpenAIAssistant(config.openai_api_key, config.openai_model_name)
         self._executor = ThreadPoolExecutor(max_workers=5)
         self.init(room_duration_mins)
 

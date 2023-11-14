@@ -8,15 +8,18 @@ class Config:
     _daily_api_key: str = None
     _daily_api_url: str = None
     _openai_api_key: str = None
+    _openai_model_name: str = None
     _room_duration_mins: int = None
 
     def __init__(self, daily_api_key=os.getenv("DAILY_API_KEY"),
                  daily_api_url=os.getenv("DAILY_API_URL"),
                  openai_api_key=os.getenv("OPENAI_API_KEY"),
+                 openai_model_name=os.getenv("OPENAI_MODEL_NAME"),
                  room_duration_mins=os.getenv("ROOM_DURATION_MINUTES"),
                  ):
         self._daily_api_key = daily_api_key
         self._openai_api_key = openai_api_key
+        self._openai_model_name = openai_model_name
 
         if not daily_api_url:
             daily_api_url = 'https://api.daily.co/v1'
@@ -37,6 +40,10 @@ class Config:
     @property
     def openai_api_key(self) -> str:
         return self._openai_api_key
+
+    @property
+    def openai_model_name(self) -> str:
+        return self._openai_model_name
 
     @property
     def room_duration_mins(self) -> int:
