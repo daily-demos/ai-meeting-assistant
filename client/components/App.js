@@ -12,7 +12,7 @@ export default function App() {
 
   const handleJoinClick = async () => {
     setIsJoining(true);
-    const response = await fetch("/api/create-room", {
+    const response = await fetch("/api/create-session", {
       method: "POST",
     });
     const body = await response.json();
@@ -33,7 +33,6 @@ export default function App() {
   };
 
   const handleLeaveClick = async () => {
-    await daily.stopTranscription();
     await daily.destroy();
     setDaily(null);
     setUrl("");
@@ -62,7 +61,7 @@ export default function App() {
           </>
         ) : (
           <>
-            <p>Join the call and start the transcription.</p>
+            <p>Join the call and the AI Assistant bot joins automatically.</p>
             <p>
               Once there's enough context, you can ask the AI for a summary or
               other information, based on the spoken words.
