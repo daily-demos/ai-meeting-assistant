@@ -3,6 +3,9 @@ import classNames from "classnames";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import ReactTimeago from "react-timeago";
 
+const buildPrompt = (question) =>
+  `AI adopts role of meeting assistant. Always respond helpful, positive, concise and in clear text. Wrap every response with 🤖. Given the transcript, answer: ${question}`;
+
 export const AIAssistant = () => {
   /**
    * Holds messages from chatting with the bot.
@@ -41,7 +44,7 @@ export const AIAssistant = () => {
     sendAppMessage(
       {
         kind: "assist",
-        query,
+        query: buildPrompt(query),
       },
       "*",
     );
