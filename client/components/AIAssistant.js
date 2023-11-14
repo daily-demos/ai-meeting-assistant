@@ -47,7 +47,6 @@ export const AIAssistant = () => {
     );
   };
 
-
   const chatRef = useRef(null);
 
   useEffect(() => {
