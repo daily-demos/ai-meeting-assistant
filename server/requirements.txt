@@ -4,7 +4,6 @@ daily-python~=0.4.0
 quart~=0.19.3
 hypercorn~=0.14.4
 openai~=1.2.2
-openai-whisper==20230918
 python-dotenv~=1.0.0
 pylint~=3.0.1
 quart_cors~=0.7.0

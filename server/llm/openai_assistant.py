@@ -50,8 +50,8 @@ class OpenAIAssistant(Assistant):
                 #    max_tokens=1024
             )
             for choice in res.choices:
-                if choice["finish_reason"] == "stop":
-                    answer = choice["message"]["content"]
+                if choice.finish_reason == "stop":
+                    answer = choice.message.content
                     return answer
             raise Exception("No usable choice found in OpenAI response")
         except Exception as e:

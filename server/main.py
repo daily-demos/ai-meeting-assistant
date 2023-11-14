@@ -11,6 +11,8 @@ from server.call.operator import Operator
 
 app = Quart(__name__)
 
+print("Running AI assistant server")
+
 # Note that this is not a secure CORS configuration for production.
 cors(app, allow_origin="*", allow_headers=["content-type"])
 config = Config()
@@ -33,9 +35,10 @@ async def create_session():
         raw = await request.get_data()
         data = json.loads(raw or 'null')
         room_duration_mins = None
-        requested_duration_mins = data["room_duration_mins"]
-        if requested_duration_mins:
-            room_duration_mins = int(requested_duration_mins)
+        if data:
+            requested_duration_mins = data["room_duration_mins"]
+            if requested_duration_mins:
+                room_duration_mins = int(requested_duration_mins)
 
         room_url = operator.create_session(room_duration_mins)
 
@@ -70,9 +73,6 @@ def process_error(msg: str, code=500, error: Exception = None,
         print(msg, error, file=sys.stderr)
     response = {'error': msg}
     return jsonify(response), code
-
-
-app.run()
 
 if __name__ == '__main__':
     app.run(debug=True)
