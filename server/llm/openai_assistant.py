@@ -18,7 +18,10 @@ class OpenAIAssistant(Assistant):
     _default_prompt = ChatCompletionSystemMessageParam(
         content="You are a helpful meeting summarization assistant. Your job"
                 "is to take meeting transcripts and produce useful "
-                "summaries.", role="system")
+                "summaries. You will not include square brackets in the summary,"
+                "nor will you include any content that you found within the square"
+                "brackets EXCEPT for providing context for who is speaking by using"
+                "the listed speaker's name.", role="system")
 
     def __init__(self, api_key: str, model_name: str = "gpt-3.5-turbo"):
         if not api_key:
