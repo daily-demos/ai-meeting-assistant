@@ -6,6 +6,7 @@ import asyncio
 import dataclasses
 import json
 import logging
+import sys
 import threading
 import time
 from asyncio import Future
@@ -300,14 +301,19 @@ class Session(EventHandler):
         logger = logging.getLogger(name)
         logger.setLevel(logging.DEBUG)
 
+        formatter = logging.Formatter('%(asctime)s -[%(threadName)s] - %(levelname)s - %(message)s')
+
         # Create a file handler
         log_file_path = self._config.get_log_file_path(self._room.name)
         if log_file_path:
             file_handler = logging.FileHandler(self._config.get_log_file_path(self._room.name))
             # Set the logging format
-            formatter = logging.Formatter('%(asctime)s -[%(threadName)s] - %(levelname)s - %(message)s')
             file_handler.setFormatter(formatter)
             # Add the file handler to the logger
             logger.addHandler(file_handler)
+        else:
+            stream_handler = logging.StreamHandler(sys.stdout)
+            stream_handler.setFormatter(formatter)
+            logger.addHandler(stream_handler)
 
         return logger

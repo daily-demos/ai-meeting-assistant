@@ -61,6 +61,8 @@ class Config:
         return self._log_dir_path
 
     def get_log_file_path(self, room_name: str) -> str | None:
+        if not self._log_dir_path:
+            return None
         return os.path.join(self.log_dir_path, f"{room_name}.log")
 
     def ensure_dirs(self):
