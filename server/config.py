@@ -10,12 +10,14 @@ class Config:
     _openai_api_key: str = None
     _openai_model_name: str = None
     _room_duration_mins: int = None
+    _log_dir_path: str = None
 
     def __init__(self, daily_api_key=os.getenv("DAILY_API_KEY"),
                  daily_api_url=os.getenv("DAILY_API_URL"),
                  openai_api_key=os.getenv("OPENAI_API_KEY"),
                  openai_model_name=os.getenv("OPENAI_MODEL_NAME"),
                  room_duration_mins=os.getenv("ROOM_DURATION_MINUTES"),
+                 log_dir = None
                  ):
         self._daily_api_key = daily_api_key
         self._openai_api_key = openai_api_key
@@ -28,6 +30,10 @@ class Config:
         if not room_duration_mins:
             room_duration_mins = 15
         self._room_duration_mins = int(room_duration_mins)
+
+        if not log_dir:
+            self._log_dir_path = os.path.abspath(
+                deduce_dir_name("LOG_DIR"))
 
     @property
     def daily_api_key(self) -> str:
@@ -48,3 +54,26 @@ class Config:
     @property
     def room_duration_mins(self) -> int:
         return self._room_duration_mins
+
+    @property
+    def log_dir_path(self) -> str:
+        return self._log_dir_path
+
+    def get_log_file_path(self, room_name: str) -> str:
+        return os.path.join(self.log_dir_path, f"{room_name}.log")
+
+    def ensure_dirs(self):
+        """Creates required file directories if they do not already exist."""
+        ensure_dir(self._log_dir_path)
+
+def ensure_dir(dir_path: str):
+    """Creates directory at the given path if it does not already exist."""
+    if not os.path.exists(dir_path):
+        os.makedirs(dir_path)
+
+
+def deduce_dir_name(env_name: str):
+    d = os.getenv(env_name)
+    if not d:
+        d = env_name
+    return d

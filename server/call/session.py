@@ -5,16 +5,19 @@ from __future__ import annotations
 import asyncio
 import dataclasses
 import json
+import logging
 import threading
 import time
 from asyncio import Future
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
+from logging import Logger
 from typing import Callable, Protocol
 
 import polling2
 import requests
 from daily import Daily, EventHandler, CallClient
+
 from server.config import Config
 from server.llm.openai_assistant import OpenAIAssistant
 from server.llm.assistant import Assistant
@@ -58,9 +61,12 @@ class Session(EventHandler):
         super().__init__()
         self._config = config
         self._on_shutdown = on_shutdown
-        self._assistant = OpenAIAssistant(config.openai_api_key, config.openai_model_name)
         self._executor = ThreadPoolExecutor(max_workers=5)
         self.init(room_duration_mins)
+        self._logger = self.create_logger(self._room.name)
+        self._assistant = OpenAIAssistant(config.openai_api_key, config.openai_model_name, self._logger)
+        self._logger.info("HELLO WORLD")
+        self._logger.info("HELLO AGAIN Self: %s, Assistant: %s", self, self._assistant)
 
     @property
     def room_url(self) -> str:
@@ -289,3 +295,20 @@ class Session(EventHandler):
                 f"Session {self._id} invoking shutdown callback, active threads:",
                 threading.active_count())
             self._on_shutdown(self._id, self._room.url)
+
+    def create_logger(self, name) -> Logger:
+        # Create a logger
+        logger = logging.getLogger(name)
+        logger.setLevel(logging.DEBUG)
+
+        # Create a file handler
+        file_handler = logging.FileHandler(self._config.get_log_file_path(self._room.name))
+
+        # Set the logging format
+        formatter = logging.Formatter('%(asctime)s -[%(threadName)s] - %(levelname)s - %(message)s')
+        file_handler.setFormatter(formatter)
+
+        # Add the file handler to the logger
+        logger.addHandler(file_handler)
+
+        return logger

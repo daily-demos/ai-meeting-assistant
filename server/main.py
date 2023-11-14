@@ -16,6 +16,7 @@ print("Running AI assistant server")
 # Note that this is not a secure CORS configuration for production.
 cors(app, allow_origin="*", allow_headers=["content-type"])
 config = Config()
+config.ensure_dirs()
 operator = Operator(config)
 
 
