@@ -1,6 +1,6 @@
 import DailyIframe from "@daily-co/daily-js";
 import { DailyAudio, DailyProvider } from "@daily-co/daily-react";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { AIAssistant } from "./AIAssistant";
 import copy from "copy-to-clipboard";
 
@@ -18,19 +18,31 @@ export default function App() {
     const body = await response.json();
     if (body.url) {
       setUrl(body.url);
+    }
+    setIsJoining(false);
+  };
+
+  const handleSubmit = (ev) => {
+    ev.preventDefault();
+    setUrl(ev.target.elements.url.value);
+  };
+
+  useEffect(() => {
+    if (!url) return;
+    const initFrame = async () => {
       if (DailyIframe.getCallInstance()) {
         await DailyIframe.getCallInstance().destroy();
       }
       const frame = DailyIframe.createFrame(wrapperRef.current, {
         showLeaveButton: true,
         showUserNameChangeUI: true,
-        url: body.url,
+        url: url,
       });
       setDaily(frame);
       await frame.join();
-    }
-    setIsJoining(false);
-  };
+    };
+    initFrame();
+  }, [url]);
 
   const handleLeaveClick = async () => {
     await daily.destroy();
@@ -70,6 +82,13 @@ export default function App() {
               <button disabled={isJoining} onClick={handleJoinClick}>
                 Join a call
               </button>
+            </div>
+            <div>or enter room URL</div>
+            <div>
+              <form onSubmit={handleSubmit}>
+                <input type="url" name="url" required />
+                <button type="submit">Join</button>
+              </form>
             </div>
           </>
         )}
