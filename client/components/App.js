@@ -3,6 +3,7 @@ import { DailyAudio, DailyProvider } from "@daily-co/daily-react";
 import { useEffect, useRef, useState } from "react";
 import { AIAssistant } from "./AIAssistant";
 import copy from "copy-to-clipboard";
+import { ClosedCaptions } from "./ClosedCaptions";
 
 export default function App() {
   const [url, setUrl] = useState("");
@@ -95,6 +96,7 @@ export default function App() {
         <div className="container">
           <div className="call">
             <div id="frame" ref={wrapperRef} />
+            <ClosedCaptions />
           </div>
           {url && <AIAssistant />}
         </div>
@@ -195,9 +197,10 @@ export default function App() {
           flex-direction: column;
           flex: 1 1 auto;
           gap: 8px;
-          justify-content: center;
-          width: 60%;
           height: 100%;
+          justify-content: center;
+          position: relative;
+          width: 60%;
         }
         #frame {
           align-self: stretch;
