@@ -164,6 +164,18 @@ export default function App() {
           cursor: default;
           opacity: 0.5;
         }
+
+        input {
+          background: var(--bg);
+          border: 1px solid var(--border);
+          border-radius: 4px;
+          color: var(--text);
+          outline: 0 solid var(--highlight50);
+          padding: 4px 8px;
+        }
+        input:focus-visible {
+          outline-width: 2px;
+        }
       `}</style>
       <style jsx>{`
         .App {
@@ -176,6 +188,11 @@ export default function App() {
           position: relative;
           text-align: center;
           width: 100%;
+        }
+        form {
+          display: flex;
+          gap: 8px;
+          justify-content: center;
         }
         .actions {
           display: flex;
