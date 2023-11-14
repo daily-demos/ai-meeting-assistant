@@ -203,7 +203,7 @@ class Session(EventHandler):
             "data": answer
         }, participant=recipient_session_id, completion=self.on_app_message_sent)
 
-    def on_app_message_sent(self, error: str = None):
+    def on_app_message_sent(self, _, error: str = None):
         """Callback invoked when an app message is sent."""
         if error:
             print("Failed to send message", error)
@@ -230,18 +230,17 @@ class Session(EventHandler):
                        message: str,
                        sender: str):
         """Callback invoked when a Daily app message is received."""
-        msg = json.loads(message)
+        # TODO message appears to be a dict when our docs say str.
+        # For now dumping it to a JSON string and parsing it back out,
+        # until designed behavior is clarified.
+        jsonMsg = json.dumps(message)
+        msg = json.loads(jsonMsg)
         kind = msg["kind"]
         if not kind or kind != "assist":
             return
 
         query = msg["query"]
-        loop = asyncio.get_event_loop()
-        loop.run_in_executor(
-            self._executor,
-            self.query_assistant,
-            sender,
-            query)
+        self.query_assistant(sender, query)
 
     def on_participant_left(self,
                             participant,
