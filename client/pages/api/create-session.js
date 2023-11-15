@@ -1,4 +1,4 @@
-const createSessionBackend = `http://127.0.0.1:5000/session`;
+const createSessionBackend = `http://daily-ai-assistant-wip4.eba-khngcrah.us-east-2.elasticbeanstalk.com/session`;
 
 export default async function handler(req, res) {
   const response = await fetch(createSessionBackend, {

@@ -87,6 +87,7 @@ export const AIAssistant = () => {
             type="text"
             placeholder="Ask AI"
             maxLength={256}
+            required
           />
           <button type="submit">Submit</button>
         </form>
