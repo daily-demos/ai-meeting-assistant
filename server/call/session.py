@@ -55,6 +55,7 @@ class Session(EventHandler):
     _id: str
     _on_shutdown: Callable[[str, str], None]
     _assistant: Assistant
+    _shutdown_timer: threading.Timer | None
 
     def __init__(self, config: Config, on_shutdown: OnShutdown,
                  room_duration_mins: int = None):
@@ -92,23 +93,23 @@ class Session(EventHandler):
         """Waits for at least one person to join the associated Daily room,
         then joins, starts transcription, and begins registering context."""
         print("Session starting polling for participation")
-        polling2.poll(
-            target=self.get_participant_count,
-            check_success=lambda count: count > 0,
-            step=0.5,
-            timeout=300)
-        print("Session detected at least one participant - joining")
-        # There is at least one participant in the room - join with the bot
+        try:
+            polling2.poll(
+                target=self.get_participant_count,
+                check_success=lambda count: count > 0,
+                step=0.5,
+                timeout=300)
+        except polling2.TimeoutException as e:
+            self._logger.error("Timed out waiting for participants to join")
+            return
+        self._logger.info("Session detected at least one participant - joining")
         call_client = CallClient(event_handler=self)
-        print("Session created call client")
         self._call_client = call_client
         room = self._room
-        print("Session joining room")
         call_client.join(
             room.url,
             room.token,
             completion=self.on_joined_meeting)
-        print("Joined call? Returning")
 
     def get_participant_count(self) -> int:
         """Gets the current number of participants in the room
@@ -248,15 +249,22 @@ class Session(EventHandler):
         query = msg["query"]
         self.query_assistant(sender, query)
 
+    def on_participant_joined(self, participant):
+        # As soon as someone joins, stop shutdown process
+        if self._shutdown_timer:
+            self._logger.info("Participant joined - cancelling shutdown.")
+            self._shutdown_timer.cancel()
+            self._shutdown_timer = None
+
     def on_participant_left(self,
                             participant,
                             reason):
         """Callback invoked when a participant leaves the Daily room."""
         count = self._call_client.participant_counts()['present']
-        print("Session handling participant left. Participant count: ", count)
+        self._logger.info("Session handling participant left. Participant count: %s", count)
         if count == 1:
-            # Should probably wait a few minutes here in case someone rejoins
-            self.shutdown()
+            self._shutdown_timer = threading.Timer(60.0, self.shutdown)
+            self._shutdown_timer.start()
 
     def set_session_data(self, room_name: str, bot_id: str):
         """Sets the bot session ID in the Daily room's session data."""
@@ -284,11 +292,10 @@ class Session(EventHandler):
     def shutdown(self):
         """Shuts down the session, leaving the Daily room, invoking the shutdown callback,
         and cancelling any pending Futures"""
-        print(
+        self._logger.info(
             f"Session {self._id} shutting down. Active threads:",
             threading.active_count())
         self._call_client.leave()
-        print(f"Session {self._id} invoked leave")
         self._executor.shutdown(wait=False, cancel_futures=True)
         if self._on_shutdown:
             print(
