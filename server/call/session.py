@@ -38,6 +38,11 @@ class Participant:
     session_id: str = None
     user_name: str = None
 
+@dataclasses.dataclass
+class Summary:
+    """Class representing a Daily meeting summary"""
+    content: str
+    retrieved_at: time.time()
 
 class OnShutdown(Protocol):
     """Class that defines the signature of a callback invoked when a session is destroyed"""
@@ -47,14 +52,19 @@ class OnShutdown(Protocol):
 
 class Session(EventHandler):
     """Class representing a single meeting happening within a Daily room."""
-    _call_client: CallClient
+
     _config: Config
-    _daily: Daily
-    _executor: ThreadPoolExecutor
-    _room: Room
-    _id: str
-    _on_shutdown: Callable[[str, str], None]
     _assistant: Assistant
+    _executor: ThreadPoolExecutor
+    _summary: Summary = None
+
+    # Daily-related properties
+    _id: str
+    _call_client: CallClient
+    _room: Room
+
+    # Shutdown-related properties
+    _on_shutdown: Callable[[str, str], None]
     _shutdown_timer: threading.Timer | None = None
 
     def __init__(self, config: Config, on_shutdown: OnShutdown,
@@ -192,7 +202,27 @@ class Session(EventHandler):
                         custom_query: str = None) -> [str | Future]:
         """Queries the configured assistant with either the given query, or the
         configured assistant's default"""
-        answer = self._assistant.query(custom_query)
+
+        want_cached_summary = custom_query is None
+        answer = None
+
+        # If we want a generic summary, and we have a cached one that's less than 30 seconds old,
+        # just return that.
+        if want_cached_summary and self._summary:
+            seconds_since_generation = time.time() - self._summary.retrieved_at
+            if seconds_since_generation < 30:
+                self._logger.info("Returning cached summary")
+                answer = self._summary.content
+
+        # If we don't have a cached summary, or it's too old, query the assistant.
+        if not answer:
+            self._logger.info("Querying assistant")
+            answer = self._assistant.query(custom_query)
+
+            # If there was no custom query provided, save this as cached summary.
+            if want_cached_summary:
+                self._logger.info("Saving general summary")
+                self._summary = Summary(content=answer, retrieved_at=time.time())
 
         # If no recipient is provided, this was probably an HTTP request through the operator
         # Just return the answer string in that case.
@@ -236,14 +266,20 @@ class Session(EventHandler):
         # For now dumping it to a JSON string and parsing it back out,
         # until designed behavior is clarified.
         jsonMsg = json.dumps(message)
-        msg = json.loads(jsonMsg)
-        if "kind" not in msg or msg["kind"] != "assist":
+        data = json.loads(jsonMsg)
+        if "kind" not in data or data["kind"] != "assist":
             return
 
         query = None
-        if "query" in msg:
-            query = msg["query"]
-        self.query_assistant(sender, query)
+        if "query" in data:
+            query = data["query"]
+
+        recipient = sender
+        # If this is a broadcast, set recipient to all participants
+        # Should probably be limited only to owners
+        if "broadcast" in data and data["broadcast"] == True:
+            recipient = "*"
+        self.query_assistant(recipient, query)
 
     def on_participant_joined(self, participant):
         # As soon as someone joins, stop shutdown process

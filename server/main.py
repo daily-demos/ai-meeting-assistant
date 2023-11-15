@@ -28,6 +28,11 @@ async def shutdown():
         task.cancel()
 
 
+@app.route('/', methods=['GET'])
+async def index():
+    return {}, 200
+
+
 @app.route('/session', methods=['POST'])
 async def create_session():
     """Creates a session, which includes creating a Daily room
@@ -58,7 +63,6 @@ async def summary():
         return process_error('room_url query parameter must be provided', 400)
     try:
         summary = operator.query_assistant(room_url)
-        print("summary")
         return jsonify({
             "summary": summary
         }), 200
@@ -74,6 +78,7 @@ def process_error(msg: str, code=500, error: Exception = None,
         print(msg, error, file=sys.stderr)
     response = {'error': msg}
     return jsonify(response), code
+
 
 if __name__ == '__main__':
     app.run(debug=True)
