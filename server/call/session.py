@@ -204,7 +204,7 @@ class Session(EventHandler):
         """Queries the configured assistant with either the given query, or the
         configured assistant's default"""
 
-        want_cached_summary = custom_query is None
+        want_cached_summary = not bool(custom_query)
         answer = None
 
         # If we want a generic summary, and we have a cached one that's less than 30 seconds old,
