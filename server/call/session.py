@@ -56,7 +56,7 @@ class Session(EventHandler):
     _config: Config
     _assistant: Assistant
     _executor: ThreadPoolExecutor
-    _summary: Summary = None
+    _summary: Summary | None
 
     # Daily-related properties
     _id: str
@@ -71,6 +71,7 @@ class Session(EventHandler):
                  room_duration_mins: int = None):
         super().__init__()
         self._config = config
+        self._summary = None
         self._on_shutdown = on_shutdown
         self._executor = ThreadPoolExecutor(max_workers=5)
         self.init(room_duration_mins)

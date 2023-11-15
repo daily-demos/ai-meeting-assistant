@@ -19,8 +19,6 @@ With this approach it's possible to handle meetings independent of their duratio
 
 ### Running the server
 
-#### Creating and activating the virtual environment
-
 In the root of the repository on your local machine, run the following commands:
 
 1. `python3 -m venv venv`
@@ -28,11 +26,14 @@ In the root of the repository on your local machine, run the following commands:
 
 In the virtual environment, run the following to install requirements and run the server:
 
+1. Copy the `.env.example` file to `.env` and add your API tokens for Daily and OpenAI
 1. `pip install -r server/requirements.txt`
 1. `quart --app server/main.py --debug run`
 
 ### Running the client
 
-- Copy the `.env.example` file to `.env.local` and add your API tokens for Daily, Deepgram and OpenAI
-- Install dependencies with `yarn install`
-- Start the dev server with `yarn dev`
+1. Navigate to the client directory: `cd client`
+1. Install dependencies with `yarn install`
+1. Start the dev server with `yarn dev`
+
+Open the displayed localhost port in your browser.
