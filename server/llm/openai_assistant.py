@@ -41,11 +41,10 @@ class OpenAIAssistant(Assistant):
 
     def register_new_context(self, new_text: str, metadata: list[str] = None):
         """Registers new context (usually a transcription line)."""
-        self._logger.info("Registering new context %s %s", metadata, new_text)
+        self._logger.info("Registering new context %s %s %s", metadata, new_text, len(self._context))
         content = self._compile_ctx_content(new_text, metadata)
         user_msg = ChatCompletionUserMessageParam(content=content, role="user")
         self._context.append(user_msg)
-        self._logger.debug("Registered new context %s", self._context)
 
     def query(self, custom_query: str = None) -> str:
         """Submits a query to OpenAI with the stored context if one is provided.
