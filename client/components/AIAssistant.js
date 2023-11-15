@@ -28,7 +28,7 @@ export const AIAssistant = () => {
   const handleAskAISubmit = async (ev) => {
     ev.preventDefault();
     const query = inputRef.current.value.trim();
-    if (!query) return;
+    // if (!query) return;
     inputRef.current.value = "";
     setChatHistory((prev) => [
       ...prev,
@@ -46,6 +46,7 @@ export const AIAssistant = () => {
       "*",
     );
   };
+
 
   const chatRef = useRef(null);
 

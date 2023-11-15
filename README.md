@@ -23,6 +23,8 @@ In the virtual environment, run the following to install requirements and run th
 
 ### Running the client
 
+In another terminal window, run the following:
+
 1. Navigate to the client directory: `cd client`
 1. Install dependencies with `yarn install`
 1. Start the dev server with `yarn dev`
