@@ -70,6 +70,7 @@ class Config:
         if self._log_dir_path:
             ensure_dir(self._log_dir_path)
 
+
 def ensure_dir(dir_path: str):
     """Creates directory at the given path if it does not already exist."""
     if not os.path.exists(dir_path):

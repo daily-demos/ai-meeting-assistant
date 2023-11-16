@@ -25,7 +25,8 @@ class OpenAIAssistant(Assistant):
                 "brackets EXCEPT for providing context for who is speaking by "
                 "using the listed speaker's name.", role="system")
 
-    def __init__(self, api_key: str, model_name: str = None, logger: logging.Logger = None):
+    def __init__(self, api_key: str, model_name: str = None,
+                 logger: logging.Logger = None):
         if not api_key:
             raise Exception("OpenAI API key not provided, but required.")
 
@@ -41,7 +42,8 @@ class OpenAIAssistant(Assistant):
 
     def register_new_context(self, new_text: str, metadata: list[str] = None):
         """Registers new context (usually a transcription line)."""
-        self._logger.info("Registering new context %s %s %s", metadata, new_text, len(self._context))
+        self._logger.info("Registering new context %s %s %s",
+                          metadata, new_text, len(self._context))
         content = self._compile_ctx_content(new_text, metadata)
         user_msg = ChatCompletionUserMessageParam(content=content, role="user")
         self._context.append(user_msg)

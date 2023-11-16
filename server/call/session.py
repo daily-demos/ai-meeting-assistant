@@ -38,11 +38,13 @@ class Participant:
     session_id: str = None
     user_name: str = None
 
+
 @dataclasses.dataclass
 class Summary:
     """Class representing a Daily meeting summary"""
     content: str
     retrieved_at: time.time()
+
 
 class OnShutdown(Protocol):
     """Class that defines the signature of a callback invoked when a session is destroyed"""
@@ -76,7 +78,10 @@ class Session(EventHandler):
         self._executor = ThreadPoolExecutor(max_workers=5)
         self.init(room_duration_mins)
         self._logger = self.create_logger(self._room.name)
-        self._assistant = OpenAIAssistant(config.openai_api_key, config.openai_model_name, self._logger)
+        self._assistant = OpenAIAssistant(
+            config.openai_api_key,
+            config.openai_model_name,
+            self._logger)
         self._logger.info("Initialized session")
 
     @property
@@ -108,7 +113,8 @@ class Session(EventHandler):
         except polling2.TimeoutException as e:
             self._logger.error("Timed out waiting for participants to join")
             return
-        self._logger.info("Session detected at least one participant - joining")
+        self._logger.info(
+            "Session detected at least one participant - joining")
         call_client = CallClient(event_handler=self)
         self._call_client = call_client
         room = self._room
@@ -214,15 +220,18 @@ class Session(EventHandler):
                 self._logger.info("Returning cached summary")
                 answer = self._summary.content
 
-        # If we don't have a cached summary, or it's too old, query the assistant.
+        # If we don't have a cached summary, or it's too old, query the
+        # assistant.
         if not answer:
             self._logger.info("Querying assistant")
             answer = self._assistant.query(custom_query)
 
-            # If there was no custom query provided, save this as cached summary.
+            # If there was no custom query provided, save this as cached
+            # summary.
             if want_cached_summary:
                 self._logger.info("Saving general summary")
-                self._summary = Summary(content=answer, retrieved_at=time.time())
+                self._summary = Summary(
+                    content=answer, retrieved_at=time.time())
 
         # If no recipient is provided, this was probably an HTTP request through the operator
         # Just return the answer string in that case.
@@ -243,11 +252,11 @@ class Session(EventHandler):
 
     def on_left_meeting(self, _, error: str = None):
         if error:
-            self._logger.error("Encountered error while leaving meeting: %s", error)
+            self._logger.error(
+                "Encountered error while leaving meeting: %s", error)
         self._executor.shutdown(wait=False, cancel_futures=True)
         if self._on_shutdown:
             self._on_shutdown(self._id, self._room.url)
-
 
     def on_joined_meeting(self, join_data, error):
         """Callback invoked when the bot has joined the Daily room."""
@@ -300,7 +309,8 @@ class Session(EventHandler):
                             reason):
         """Callback invoked when a participant leaves the Daily room."""
         count = self._call_client.participant_counts()['present']
-        self._logger.info("Session handling participant left. Participant count: %s", count)
+        self._logger.info(
+            "Session handling participant left. Participant count: %s", count)
         if count == 1:
             self._shutdown_timer = threading.Timer(60.0, self.shutdown)
             self._shutdown_timer.start()
@@ -339,12 +349,14 @@ class Session(EventHandler):
         logger = logging.getLogger(name)
         logger.setLevel(logging.DEBUG)
 
-        formatter = logging.Formatter('%(asctime)s -[%(threadName)s] - %(levelname)s - %(message)s')
+        formatter = logging.Formatter(
+            '%(asctime)s -[%(threadName)s] - %(levelname)s - %(message)s')
 
         # Create a file handler
         log_file_path = self._config.get_log_file_path(self._room.name)
         if log_file_path:
-            file_handler = logging.FileHandler(self._config.get_log_file_path(self._room.name))
+            file_handler = logging.FileHandler(
+                self._config.get_log_file_path(self._room.name))
             # Set the logging format
             file_handler.setFormatter(formatter)
             # Add the file handler to the logger

@@ -79,7 +79,8 @@ async def query():
     try:
         data = json.loads(raw or 'null')
     except Exception as e:
-        return process_error("Confirm that request body is in valid JSON format", 400, e)
+        return process_error(
+            "Confirm that request body is in valid JSON format", 400, e)
 
     room_url = None
     requested_query = None
