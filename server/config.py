@@ -38,29 +38,36 @@ class Config:
 
     @property
     def daily_api_key(self) -> str:
+        """Returns the configured Daily API key"""
         return self._daily_api_key
 
     @property
     def daily_api_url(self) -> str:
+        """Returns the configured Daily API URL"""
         return self._daily_api_url
 
     @property
     def openai_api_key(self) -> str:
+        """Returns the configured OpenAI API key"""
         return self._openai_api_key
 
     @property
     def openai_model_name(self) -> str:
+        """Returns the configured OpenAI model name"""
         return self._openai_model_name
 
     @property
     def room_duration_mins(self) -> int:
+        """Returns how long each room should be alive for, in minutes"""
         return self._room_duration_mins
 
     @property
     def log_dir_path(self) -> str | None:
+        """Returns the configured log directory"""
         return self._log_dir_path
 
     def get_log_file_path(self, room_name: str) -> str | None:
+        """Returns the log file for the given room name"""
         if not self._log_dir_path:
             return None
         return os.path.join(self.log_dir_path, f"{room_name}.log")

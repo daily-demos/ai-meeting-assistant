@@ -30,6 +30,7 @@ async def shutdown():
 
 @app.route('/', methods=['GET'])
 async def index():
+    """Just an empty index file"""
     return {}, 200
 
 
@@ -62,9 +63,9 @@ async def summary():
     if not room_url:
         return process_error('room_url query parameter must be provided', 400)
     try:
-        summary = operator.query_assistant(room_url)
+        got_summary = operator.query_assistant(room_url)
         return jsonify({
-            "summary": summary
+            "summary": got_summary
         }), 200
     except Exception as e:
         return process_error('failed to generate meeting summary', 500, e)
