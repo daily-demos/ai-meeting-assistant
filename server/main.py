@@ -42,7 +42,7 @@ async def create_session():
         data = json.loads(raw or 'null')
         room_duration_mins = None
         if data:
-            requested_duration_mins = data["room_duration_mins"]
+            requested_duration_mins = data.get("room_duration_mins")
             if requested_duration_mins:
                 room_duration_mins = int(requested_duration_mins)
 
@@ -68,6 +68,36 @@ async def summary():
         }), 200
     except Exception as e:
         return process_error('failed to generate meeting summary', 500, e)
+
+
+@app.route('/query', methods=['POST'])
+async def query():
+    """Runs a query against the session using the provided query string."""
+
+    bad_request_err_msg = "Request body must contain a 'room_url' and 'query'"
+    raw = await request.get_data()
+    try:
+        data = json.loads(raw or 'null')
+    except Exception as e:
+        return process_error("Confirm that request body is in valid JSON format", 400, e)
+
+    room_url = None
+    requested_query = None
+    if data:
+        room_url = data.get("room_url")
+        requested_query = data.get("query")
+
+    # Both room URl and query are required for this endpoint
+    if not room_url or not requested_query:
+        return process_error(bad_request_err_msg, 400)
+
+    try:
+        res = operator.query_assistant(room_url, requested_query)
+        return jsonify({
+            "response": res
+        }), 200
+    except Exception as e:
+        return process_error('Failed to query session', 500, e)
 
 
 def process_error(msg: str, code=500, error: Exception = None,

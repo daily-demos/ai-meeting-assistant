@@ -275,17 +275,16 @@ class Session(EventHandler):
         # until designed behavior is clarified.
         jsonMsg = json.dumps(message)
         data = json.loads(jsonMsg)
-        if "kind" not in data or data["kind"] != "assist":
+        kind = data.get("kind")
+        if kind != "assist":
             return
 
-        query = None
-        if "query" in data:
-            query = data["query"]
-
+        query = data.get("query")
         recipient = sender
+
         # If this is a broadcast, set recipient to all participants
         # Should probably be limited only to owners
-        if "broadcast" in data and data["broadcast"] == True:
+        if bool(data.get("broadcast")):
             recipient = "*"
         self.query_assistant(recipient, query)
 
