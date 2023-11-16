@@ -14,7 +14,6 @@ class Operator():
     def __init__(self, config: Config):
         self._config = config
         Daily.init()
-        print("active threads on operator init:", threading.active_count())
 
     def create_session(self, room_duration_mins: int = None) -> str:
         """Creates a session, which includes creating a Daily room."""

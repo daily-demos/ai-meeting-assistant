@@ -49,6 +49,11 @@ class OpenAIAssistant(Assistant):
     def query(self, custom_query: str = None) -> str:
         """Submits a query to OpenAI with the stored context if one is provided.
         If a query is not provided, uses the default."""
+        if len(self._context) == 0:
+            return ("Sorry! I don't have any context saved yet. "
+                    "Please try speaking to add some context and confirm that "
+                    "transcription is enabled.")
+
         query = self._default_prompt
 
         if custom_query:

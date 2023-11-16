@@ -93,8 +93,7 @@ class Session(EventHandler):
         self._room = room
         loop = asyncio.get_event_loop()
         self._call_client = CallClient(event_handler=self)
-        task = loop.run_in_executor(self._executor, self.start_session)
-        self._task = task
+        loop.run_in_executor(self._executor, self.start_session)
         return room.url
 
     def start_session(self):
@@ -242,6 +241,14 @@ class Session(EventHandler):
         if error:
             self._logger.error("Failed to send app message: %s", error)
 
+    def on_left_meeting(self, _, error: str = None):
+        if error:
+            self._logger.error("Encountered error while leaving meeting: %s", error)
+        self._executor.shutdown(wait=False, cancel_futures=True)
+        if self._on_shutdown:
+            self._on_shutdown(self._id, self._room.url)
+
+
     def on_joined_meeting(self, join_data, error):
         """Callback invoked when the bot has joined the Daily room."""
         if error:
@@ -326,10 +333,7 @@ class Session(EventHandler):
         self._logger.info(
             f"Session {self._id} shutting down. Active threads: %s",
             threading.active_count())
-        self._call_client.leave()
-        self._executor.shutdown(wait=False, cancel_futures=True)
-        if self._on_shutdown:
-            self._on_shutdown(self._id, self._room.url)
+        self._call_client.leave(self.on_left_meeting)
 
     def create_logger(self, name) -> Logger:
         # Create a logger
