@@ -1,9 +1,13 @@
 import DailyIframe from "@daily-co/daily-js";
-import { DailyAudio, DailyProvider } from "@daily-co/daily-react";
+import { DailyProvider } from "@daily-co/daily-react";
 import { useEffect, useRef, useState } from "react";
-import { AIAssistant } from "./AIAssistant";
 import copy from "copy-to-clipboard";
-import { ClosedCaptions } from "./ClosedCaptions";
+import { ClosedCaptions, disableCCId } from "./ClosedCaptions";
+import { RobotButtonEffects, robotBtnId } from "./RobotButtonEffects";
+import {
+  getDisableCCButton,
+  getOpenRobotButton,
+} from "../utils/custom-buttons";
 
 export default function App() {
   const [url, setUrl] = useState("");
@@ -28,28 +32,47 @@ export default function App() {
     setUrl(ev.target.elements.url.value);
   };
 
-  useEffect(() => {
-    if (!url) return;
-    const initFrame = async () => {
-      if (DailyIframe.getCallInstance()) {
-        await DailyIframe.getCallInstance().destroy();
-      }
-      const frame = DailyIframe.createFrame(wrapperRef.current, {
-        showLeaveButton: true,
-        showUserNameChangeUI: true,
-        url: url,
-      });
-      setDaily(frame);
-      await frame.join();
-    };
-    initFrame();
-  }, [url]);
+  useEffect(
+    function initAppEffect() {
+      if (!url) return;
+      const initFrame = async () => {
+        if (DailyIframe.getCallInstance()) {
+          await DailyIframe.getCallInstance().destroy();
+        }
+        const frame = DailyIframe.createFrame(wrapperRef.current, {
+          showLeaveButton: true,
+          showUserNameChangeUI: true,
+          url: url,
+          customIntegrations: {
+            assistant: {
+              label: "AI Assistant",
+              location: "sidebar",
+              src:
+                location.protocol +
+                "//" +
+                location.host +
+                "/assistant?room_url=" +
+                url,
+            },
+          },
+          customTrayButtons: {
+            [robotBtnId]: getOpenRobotButton(),
+            [disableCCId]: getDisableCCButton(),
+          },
+        });
+        setDaily(frame);
+        await frame.join();
 
-  const handleLeaveClick = async () => {
-    await daily.destroy();
-    setDaily(null);
-    setUrl("");
-  };
+        frame.once("left-meeting", () => {
+          frame.destroy();
+          setDaily(null);
+          setUrl("");
+        });
+      };
+      initFrame();
+    },
+    [url],
+  );
 
   const [copied, setCopied] = useState(false);
   const handleCopyURL = () => {
@@ -69,7 +92,6 @@ export default function App() {
               <button disabled={copied} onClick={handleCopyURL}>
                 {copied ? "✅ Copied" : "📋 Copy room URL"}
               </button>
-              <button onClick={handleLeaveClick}>🚪 Leave</button>
             </div>
           </>
         ) : (
@@ -97,11 +119,10 @@ export default function App() {
           <div className="call">
             <div id="frame" ref={wrapperRef} />
             <ClosedCaptions />
+            <RobotButtonEffects />
           </div>
-          {url && <AIAssistant />}
         </div>
       </div>
-      <DailyAudio />
       <style jsx global>{`
         *,
         *::before,
@@ -110,11 +131,11 @@ export default function App() {
         }
 
         :root {
-          --bg: #121a24;
+          --bg: #fff;
           --border: #2b3f56;
-          --text: #fff;
-          --highlight: #feaa2c;
-          --highlight50: #feaa2caa;
+          --text: #121a24;
+          --highlight: #1bebb9;
+          --highlight50: #d1fbf1;
 
           height: 100%;
           margin: 0;

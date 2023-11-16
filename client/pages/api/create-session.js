@@ -16,10 +16,5 @@ export default async function handler(req, res) {
     return;
   }
   const body = await response.json();
-
-  if (response.ok) {
-    res.status(200).json({ url: body.room_url });
-  } else {
-    res.status(500).json({ error: "Error when creating room", details: body });
-  }
+  res.status(200).json({ url: body.room_url });
 }

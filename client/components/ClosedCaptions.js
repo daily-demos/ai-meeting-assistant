@@ -1,18 +1,71 @@
-import { useDailyEvent, useTranscription } from "@daily-co/daily-react";
+import {
+  useDaily,
+  useDailyEvent,
+  useTranscription,
+} from "@daily-co/daily-react";
 import classNames from "classnames";
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+
+import { getDisableCCButton, getEnableCCButton } from "../utils/custom-buttons";
+
+export const enableCCId = "enable-cc";
+export const disableCCId = "disable-cc";
+
+const captionTime = 5000;
 
 export const ClosedCaptions = () => {
-  const [captions, setCaptions] = useState([]);
-
+  const daily = useDaily();
+  const [enabled, setEnabled] = useState(true);
   const [hasSidebar, setHasSidebar] = useState(false);
 
+  useDailyEvent(
+    "custom-button-click",
+    useCallback((ev) => {
+      switch (ev.button_id) {
+        case disableCCId:
+          setEnabled(false);
+          break;
+        case enableCCId:
+          setEnabled(true);
+          break;
+      }
+    }, []),
+  );
+
+  useEffect(() => {
+    if (!daily || daily.isDestroyed()) return;
+    const buttons = daily.customTrayButtons();
+    delete buttons[enableCCId];
+    delete buttons[disableCCId];
+    if (enabled) {
+      buttons[disableCCId] = getDisableCCButton();
+    } else {
+      buttons[enableCCId] = getEnableCCButton();
+    }
+    daily.updateCustomTrayButtons(buttons);
+  }, [enabled]);
+
+  const audioRef = useRef(null);
+  const containerRef = useRef(null);
+
+  const addCaptionLine = (text) => {
+    if (!containerRef.current) return;
+    const div = document.createElement("div");
+    div.className = "cc-line";
+    div.innerText = text;
+    containerRef.current.appendChild(div);
+    setTimeout(() => {
+      div.remove();
+      // Remove slightly earlier to avoid element go back to initial CSS state
+    }, captionTime - 50);
+  };
+
   const { isTranscribing } = useTranscription({
+    onTranscriptionStarted: useCallback(() => {
+      audioRef.current.play();
+    }, []),
     onTranscriptionAppData: useCallback((ev) => {
-      setCaptions((c) => [...c, ev.data.text]);
-      setTimeout(() => {
-        setCaptions((c) => c.slice(1));
-      }, 5000);
+      addCaptionLine(ev.data.text);
     }, []),
   });
 
@@ -26,11 +79,10 @@ export const ClosedCaptions = () => {
   useDailyEvent(
     "left-meeting",
     useCallback(() => {
-      setCaptions([]);
+      if (!containerRef.current) return;
+      containerRef.current.innerText = "";
     }, []),
   );
-
-  if (!isTranscribing) return null;
 
   return (
     <div
@@ -38,24 +90,16 @@ export const ClosedCaptions = () => {
         sidebar: hasSidebar,
       })}
     >
-      <span className="text">
-        {captions.map((text, i) => (
-          <>
-            {i > 0 && <br />}
-            <span>{text}</span>
-          </>
-        ))}
-      </span>
+      <audio ref={audioRef} src="/transcription-started.mp3" playsInline />
+      {isTranscribing && enabled && (
+        <div ref={containerRef} className="text"></div>
+      )}
       <style jsx>{`
         .closed-captions {
-          background: rgba(0, 0, 0, 0.5);
           bottom: 100px;
-          color: #fff;
-          display: inline;
           font-size: 20px;
           left: 50%;
           line-height: 24px;
-          padding: 4px;
           pointer-events: none;
           position: absolute;
           transform: translateX(-50%);
@@ -64,6 +108,44 @@ export const ClosedCaptions = () => {
         .closed-captions.sidebar {
           left: calc(50% - 160px);
           max-width: calc(100% - 320px);
+        }
+        .closed-captions:empty {
+          opacity: 0;
+        }
+        .text {
+          align-items: center;
+          display: flex;
+          flex-direction: column;
+        }
+        .closed-captions :global(.cc-line) {
+          animation-name: show-cc;
+          animation-duration: ${captionTime / 1000}s;
+          animation-play-state: running;
+          animation-timing-function: ease-in-out;
+          animation-iteration-count: 1;
+          background: rgba(0, 0, 0, 0.5);
+          color: #fff;
+          display: block;
+          padding: 4px;
+          width: auto;
+        }
+        @keyframes show-cc {
+          0% {
+            opacity: 0;
+            transform: translateY(25%);
+          }
+          10% {
+            opacity: 1;
+            transform: translateY(0);
+          }
+          90% {
+            opacity: 1;
+            transform: translateY(0);
+          }
+          100% {
+            opacity: 0;
+            transform: translateY(-25%);
+          }
         }
       `}</style>
     </div>
