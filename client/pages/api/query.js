@@ -1,8 +1,6 @@
 const postQueryBackend = `http://daily-ai-assistant-wip4.eba-khngcrah.us-east-2.elasticbeanstalk.com/query`;
 
 export default async function handler(req, res) {
-  console.log(req.body);
-
   const response = await fetch(postQueryBackend, {
     headers: {
       "Content-type": "application/json",

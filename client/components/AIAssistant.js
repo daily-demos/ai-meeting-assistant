@@ -34,7 +34,6 @@ const fetchQuery = async (roomUrl, query) => {
 
   if (response.ok) {
     const body = await response.json();
-    console.log(body);
     return body.response;
   }
 
@@ -151,9 +150,14 @@ export const AIAssistant = ({ roomUrl }) => {
       <div className="wrapper">
         <div className="actions">
           {chatHistory.length > 0 && (
-            <button onClick={() => setChatHistory([])}>💨 Clear chat</button>
+            <button onClick={() => setChatHistory([])}>
+              <img src="/delete.svg" height="16" /> Clear chat
+            </button>
           )}
-          <button onClick={() => setPlaySounds((p) => !p)}>
+          <button
+            onClick={() => setPlaySounds((p) => !p)}
+            title={playSounds ? "Disable sounds" : "Enable sounds"}
+          >
             <img
               src={playSounds ? "/volume-on.svg" : "/volume-off.svg"}
               alt={playSounds ? "Disable sounds" : "Enable sounds"}
@@ -170,7 +174,21 @@ export const AIAssistant = ({ roomUrl }) => {
                 answer: msg.role === "assistant",
               })}
             >
-              <ReactTimeago date={msg.date} />
+              <ReactTimeago
+                date={msg.date}
+                formatter={(
+                  value,
+                  unit,
+                  suffix,
+                  epochMilliseconds,
+                  nextFormatter,
+                ) => {
+                  if (unit === "second") {
+                    return value < 30 ? `a moment ago` : `about a minute ago`;
+                  }
+                  return nextFormatter(value, unit, suffix, epochMilliseconds);
+                }}
+              />
               {msg.content}
             </div>
           ))}
@@ -243,11 +261,14 @@ export const AIAssistant = ({ roomUrl }) => {
         }
 
         button {
+          align-items: center;
           background: var(--highlight);
           border: none;
           border-radius: 4px;
           color: var(--text);
           cursor: pointer;
+          display: flex;
+          gap: 4px;
           font-weight: 600;
           outline: 0 solid var(--highlight50);
           padding: 6px 8px;
@@ -320,7 +341,7 @@ export const AIAssistant = ({ roomUrl }) => {
           margin-left: 2rem;
         }
         .stream .message.answer {
-          background: var(--highlight);
+          background: var(--highlight50);
           color: #000;
           margin-right: 2rem;
           white-space: pre-wrap;
