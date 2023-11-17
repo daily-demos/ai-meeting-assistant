@@ -18,12 +18,9 @@ class OpenAIAssistant(Assistant):
     # For now, just store context in memory.
     _context: list[ChatCompletionMessageParam] = None
     _default_prompt = ChatCompletionSystemMessageParam(
-        content="You are a helpful meeting summarization assistant. Your job"
-                "is to take meeting transcripts and produce useful summaries."
-                "You will not include square brackets in the output,"
-                "nor will you include any content that you found within the square"
-                "brackets EXCEPT for providing context for who is speaking by "
-                "using the listed speaker's name.", role="system")
+        content="AI adopts role of meeting recorder to provide concise meeting summaries incl. discussed key items, "
+                "decisions and action items. Based on the meeting transcript, write a summary that helps document all "
+                "key aspects of the conversation.", role="system")
 
     def __init__(self, api_key: str, model_name: str = None,
                  logger: logging.Logger = None):
@@ -38,7 +35,6 @@ class OpenAIAssistant(Assistant):
         self._client = OpenAI(
             api_key=api_key,
         )
-        logger.info("Instantiated AI assistant %s", self._context)
 
     def register_new_context(self, new_text: str, metadata: list[str] = None):
         """Registers new context (usually a transcription line)."""

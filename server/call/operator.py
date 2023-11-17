@@ -10,15 +10,21 @@ from server.call.session import Session
 class Operator():
     _config: Config
     _sessions: list[Session] = []
+    _is_shutting_down: bool
 
     def __init__(self, config: Config):
         self._config = config
+        self._is_shutting_down = False
         Daily.init()
 
     def create_session(self, room_duration_mins: int = None) -> str:
         """Creates a session, which includes creating a Daily room."""
         session = Session(self._config, self.clear_session, room_duration_mins)
         self._sessions.append(session)
+        print("CREATED SESSION. ALL THREADS:", threading.active_count())
+        for thread in threading.enumerate():
+            print(thread.name, thread.is_alive())
+
         return session.room_url
 
     def query_assistant(self, room_url: str, custom_query=None) -> str:
@@ -31,24 +37,27 @@ class Operator():
 
     def clear_session(self, id: str, room_url: str):
         """Removes the session from the list of active sessions."""
-        print("previous session count:", len(self._sessions),
-              "active threads:", threading.active_count())
         for s in self._sessions:
             if s.id == id and s.room_url == room_url:
                 self._sessions.remove(s)
                 break
-        print("current session count:", len(self._sessions),
-              "active threads:", threading.active_count())
+
+        # If the operator is shutting down and this was the last
+        # session removed, deinitialize Daily
+        if self._is_shutting_down and len(self._sessions) is None:
+            Daily.deinit()
+
+        print("KILLED SESSION. ALL THREADS:", threading.active_count())
+        for thread in threading.enumerate():
+            print(thread.name, thread.is_alive(), thread.ident)
 
     def shutdown(self):
         """Shuts down all active sessions and deinitializes Daily."""
-        print(
-            "Shutting down operator. Thread count before:",
-            threading.active_count())
-        for session in self._sessions:
+
+        self._is_shutting_down = True
+        for idx, session in self._sessions:
             session.shutdown()
-        # TODO: Should make sure this waits until all bots have left.
-        Daily.deinit()
-        print(
-            "Shutting down operator. Thread count after:",
-            threading.active_count())
+
+        if len(self._sessions) == 0:
+            Daily.deinit()
+

@@ -57,7 +57,6 @@ class Session(EventHandler):
 
     _config: Config
     _assistant: Assistant
-    _executor: ThreadPoolExecutor
     _summary: Summary | None
 
     # Daily-related properties
@@ -82,7 +81,7 @@ class Session(EventHandler):
             config.openai_api_key,
             config.openai_model_name,
             self._logger)
-        self._logger.info("Initialized session")
+        self._logger.info("Initialized session %s", self._room.name)
 
     @property
     def room_url(self) -> str:
@@ -98,7 +97,9 @@ class Session(EventHandler):
         self._room = room
         loop = asyncio.get_event_loop()
         self._call_client = CallClient(event_handler=self)
-        loop.run_in_executor(self._executor, self.start_session)
+        task = threading.Thread(target=self.start_session)
+        task.start()
+
         return room.url
 
     def start_session(self):
@@ -254,7 +255,6 @@ class Session(EventHandler):
         if error:
             self._logger.error(
                 "Encountered error while leaving meeting: %s", error)
-        self._executor.shutdown(wait=False, cancel_futures=True)
         if self._on_shutdown:
             self._on_shutdown(self._id, self._room.url)
 
@@ -342,6 +342,7 @@ class Session(EventHandler):
         self._logger.info(
             f"Session {self._id} shutting down. Active threads: %s",
             threading.active_count())
+
         self._call_client.leave(self.on_left_meeting)
 
     def create_logger(self, name) -> Logger:
@@ -350,16 +351,13 @@ class Session(EventHandler):
         logger.setLevel(logging.DEBUG)
 
         formatter = logging.Formatter(
-            '%(asctime)s -[%(threadName)s] - %(levelname)s - %(message)s')
+            '%(asctime)s -[%(threadName)s-%(thread)s] - %(levelname)s - %(message)s')
 
-        # Create a file handler
         log_file_path = self._config.get_log_file_path(self._room.name)
         if log_file_path:
             file_handler = logging.FileHandler(
                 self._config.get_log_file_path(self._room.name))
-            # Set the logging format
             file_handler.setFormatter(formatter)
-            # Add the file handler to the logger
             logger.addHandler(file_handler)
         else:
             stream_handler = logging.StreamHandler(sys.stdout)
