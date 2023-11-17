@@ -74,7 +74,6 @@ class Session(EventHandler):
         self._config = config
         self._summary = None
         self._on_shutdown = on_shutdown
-        self._executor = ThreadPoolExecutor(max_workers=5)
         self.init(room_duration_mins)
         self._logger = self.create_logger(self._room.name)
         self._assistant = OpenAIAssistant(
