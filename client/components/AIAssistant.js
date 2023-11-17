@@ -1,44 +1,11 @@
 import classNames from "classnames";
 import React, { useEffect, useRef, useState } from "react";
 import ReactTimeago from "react-timeago";
-
-const buildPrompt = (question) =>
-  `AI adopts role of meeting assistant. Answer questions based on transcript. Always respond helpful, positive, concise and in clear text. No questions. User asks: ${question}`;
-
-const fetchSummary = async (roomUrl) => {
-  const response = await fetch(`/api/summary?room_url=${roomUrl}`, {
-    headers: {
-      "Content-type": "application/json",
-    },
-  });
-
-  if (response.ok) {
-    const body = await response.json();
-    return body.summary;
-  }
-
-  throw new Error();
-};
-
-const fetchQuery = async (roomUrl, query) => {
-  const response = await fetch("/api/query", {
-    headers: {
-      "Content-type": "application/json",
-    },
-    method: "POST",
-    body: JSON.stringify({
-      room_url: roomUrl,
-      query: buildPrompt(query),
-    }),
-  });
-
-  if (response.ok) {
-    const body = await response.json();
-    return body.response;
-  }
-
-  throw new Error();
-};
+import { fetchQuery, fetchSummary } from "../utils/api";
+import { GlobalStyles } from "./GlobalStyles";
+import { DeleteIcon } from "./icons/DeleteIcon";
+import { VolumeOnIcon } from "./icons/VolumeOnIcon";
+import { VolumeOffIcon } from "./icons/VolumeOffIcon";
 
 export const AIAssistant = ({ roomUrl }) => {
   /**
@@ -151,18 +118,19 @@ export const AIAssistant = ({ roomUrl }) => {
         <div className="actions">
           {chatHistory.length > 0 && (
             <button onClick={() => setChatHistory([])}>
-              <img src="/delete.svg" height="16" /> Clear chat
+              <DeleteIcon size={16} />
+              <span>Clear chat</span>
             </button>
           )}
           <button
             onClick={() => setPlaySounds((p) => !p)}
             title={playSounds ? "Disable sounds" : "Enable sounds"}
           >
-            <img
-              src={playSounds ? "/volume-on.svg" : "/volume-off.svg"}
-              alt={playSounds ? "Disable sounds" : "Enable sounds"}
-              height="16"
-            />
+            {playSounds ? (
+              <VolumeOnIcon size={16} />
+            ) : (
+              <VolumeOffIcon size={16} />
+            )}
           </button>
         </div>
         <div className="stream" ref={chatRef}>
@@ -214,86 +182,7 @@ export const AIAssistant = ({ roomUrl }) => {
       </div>
       <audio ref={audioMsgRef} src="/ai-message.mp3" playsInline />
       <audio ref={audioErrorRef} src="/ai-error.mp3" playsInline />
-      <style jsx global>{`
-        *,
-        *::before,
-        *::after {
-          box-sizing: border-box;
-        }
-
-        :root {
-          --bg: #fff;
-          --border: #2b3f56;
-          --text: #121a24;
-          --highlight: #1bebb9;
-          --highlight50: #d1fbf1;
-
-          height: 100%;
-          margin: 0;
-          padding: 0;
-          width: 100%;
-        }
-
-        body {
-          background: var(--bg);
-          color: var(--text);
-          font-family:
-            -apple-system,
-            BlinkMacSystemFont,
-            Segoe UI,
-            Roboto,
-            Oxygen,
-            Ubuntu,
-            Cantarell,
-            Fira Sans,
-            Droid Sans,
-            Helvetica Neue,
-            sans-serif;
-          font-size: 14px;
-          height: 100%;
-          width: 100%;
-          margin: 0;
-          padding: 0;
-        }
-
-        #__next {
-          height: 100%;
-        }
-
-        button {
-          align-items: center;
-          background: var(--highlight);
-          border: none;
-          border-radius: 4px;
-          color: var(--text);
-          cursor: pointer;
-          display: flex;
-          gap: 4px;
-          font-weight: 600;
-          outline: 0 solid var(--highlight50);
-          padding: 6px 8px;
-        }
-        button:not([disabled]):hover,
-        button:not([disabled]):focus-visible {
-          outline-width: 2px;
-        }
-        button[disabled] {
-          cursor: default;
-          opacity: 0.5;
-        }
-
-        input {
-          background: var(--bg);
-          border: 1px solid var(--border);
-          border-radius: 4px;
-          color: var(--text);
-          outline: 0 solid var(--highlight50);
-          padding: 6px 8px;
-        }
-        input:focus-visible {
-          outline-width: 2px;
-        }
-      `}</style>
+      <GlobalStyles />
       <style jsx>{`
         .ai-assistant {
           align-self: stretch;

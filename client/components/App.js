@@ -8,6 +8,9 @@ import {
   getDisableCCButton,
   getOpenRobotButton,
 } from "../utils/custom-buttons";
+import { GlobalStyles } from "./GlobalStyles";
+import { DoneIcon } from "./icons/DoneIcon";
+import { CopyIcon } from "./icons/CopyIcon";
 
 export default function App() {
   const [url, setUrl] = useState("");
@@ -90,22 +93,33 @@ export default function App() {
           <>
             <div className="actions">
               <button disabled={copied} onClick={handleCopyURL}>
-                {copied ? "✅ Copied" : "📋 Copy room URL"}
+                {copied ? (
+                  <>
+                    <DoneIcon size={16} />
+                    <span>Copied</span>
+                  </>
+                ) : (
+                  <>
+                    <CopyIcon size={16} />
+                    <span>Copy room URL</span>
+                  </>
+                )}
               </button>
             </div>
           </>
         ) : (
           <>
-            <p>Join the call and the AI Assistant bot joins automatically.</p>
+            <p>
+              Join the call and the AI Assistant bot joins and starts
+              transcription automatically.
+            </p>
             <p>
               Once there's enough context, you can ask the AI for a summary or
               other information, based on the spoken words.
             </p>
-            <div>
-              <button disabled={isJoining} onClick={handleJoinClick}>
-                Join a call
-              </button>
-            </div>
+            <button disabled={isJoining} onClick={handleJoinClick}>
+              Create room and join
+            </button>
             <div>or enter room URL</div>
             <div>
               <form onSubmit={handleSubmit}>
@@ -123,83 +137,10 @@ export default function App() {
           </div>
         </div>
       </div>
-      <style jsx global>{`
-        *,
-        *::before,
-        *::after {
-          box-sizing: border-box;
-        }
-
-        :root {
-          --bg: #fff;
-          --border: #2b3f56;
-          --text: #121a24;
-          --highlight: #1bebb9;
-          --highlight50: #d1fbf1;
-
-          height: 100%;
-          margin: 0;
-          padding: 0;
-          width: 100%;
-        }
-
-        body {
-          background: var(--bg);
-          color: var(--text);
-          font-family:
-            -apple-system,
-            BlinkMacSystemFont,
-            Segoe UI,
-            Roboto,
-            Oxygen,
-            Ubuntu,
-            Cantarell,
-            Fira Sans,
-            Droid Sans,
-            Helvetica Neue,
-            sans-serif;
-          height: 100%;
-          width: 100%;
-          margin: 0;
-          padding: 0;
-        }
-
-        #__next {
-          height: 100%;
-        }
-
-        button {
-          background: var(--highlight);
-          border: none;
-          border-radius: 4px;
-          color: var(--text);
-          cursor: pointer;
-          outline: 0 solid var(--highlight50);
-          padding: 4px 8px;
-        }
-        button:not([disabled]):hover,
-        button:not([disabled]):focus-visible {
-          outline-width: 2px;
-        }
-        button[disabled] {
-          cursor: default;
-          opacity: 0.5;
-        }
-
-        input {
-          background: var(--bg);
-          border: 1px solid var(--border);
-          border-radius: 4px;
-          color: var(--text);
-          outline: 0 solid var(--highlight50);
-          padding: 4px 8px;
-        }
-        input:focus-visible {
-          outline-width: 2px;
-        }
-      `}</style>
+      <GlobalStyles />
       <style jsx>{`
         .App {
+          align-items: center;
           display: flex;
           flex-direction: column;
           font-family: sans-serif;
@@ -228,6 +169,7 @@ export default function App() {
           justify-content: center;
           min-height: 0;
           position: relative;
+          width: 100%;
         }
         .call {
           align-items: center;
