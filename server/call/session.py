@@ -94,10 +94,8 @@ class Session(EventHandler):
         """Creates a Daily room and uses it to start a session"""
         room = self.create_room(room_duration_mins)
         self._room = room
-        self._call_client = CallClient(event_handler=self)
         task = threading.Thread(target=self.start_session)
         task.start()
-
         return room.url
 
     def start_session(self):
