@@ -90,7 +90,8 @@ async def query():
 
     # Both room URl and query are required for this endpoint
     if not room_url or not requested_query:
-        return process_error("Request body must contain a 'room_url' and 'query'", 400)
+        return process_error(
+            "Request body must contain a 'room_url' and 'query'", 400)
 
     try:
         res = operator.query_assistant(room_url, requested_query)

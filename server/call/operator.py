@@ -2,6 +2,7 @@
 querying functionality to HTTP requesters."""
 import threading
 
+import polling2
 from daily import Daily
 from server.config import Config
 from server.call.session import Session
@@ -17,9 +18,12 @@ class Operator():
         self._is_shutting_down = False
         Daily.init()
 
+        t = threading.Thread(target=self.cleanup)
+        t.start()
+
     def create_session(self, room_duration_mins: int = None) -> str:
         """Creates a session, which includes creating a Daily room."""
-        session = Session(self._config, self.clear_session, room_duration_mins)
+        session = Session(self._config, room_duration_mins)
         self._sessions.append(session)
         print("CREATED SESSION. ALL THREADS:", threading.active_count())
         for thread in threading.enumerate():
@@ -35,29 +39,34 @@ class Operator():
         raise Exception(
             f"Requested room URL {room_url} not found in active sessions")
 
-    def clear_session(self, id: str, room_url: str):
-        """Removes the session from the list of active sessions."""
-        for s in self._sessions:
-            if s.id == id and s.room_url == room_url:
-                self._sessions.remove(s)
-                break
-
-        # If the operator is shutting down and this was the last
-        # session removed, deinitialize Daily
-        if self._is_shutting_down and len(self._sessions) is None:
-            Daily.deinit()
-
-        print("KILLED SESSION. ALL THREADS:", threading.active_count())
-        for thread in threading.enumerate():
-            print(thread.name, thread.is_alive(), thread.ident)
-
     def shutdown(self):
-        """Shuts down all active sessions and deinitializes Daily."""
-
-        self._is_shutting_down = True
+        """Shuts down all active sessions"""
         for idx, session in self._sessions:
             session.shutdown()
 
-        if len(self._sessions) == 0:
-            Daily.deinit()
+    def cleanup(self):
+        """Periodically checks for destroyed sessions and removes them from the session list"""
+        polling2.poll(
+            target=self.remove_destroyed_sessions,
+            check_success=lambda done: done is True,
+            poll_forever=True,
+            step=5)
 
+    def remove_destroyed_sessions(self) -> bool:
+        """Removes destroyed sessions from the session list and deinitializes Daily
+        if all sessions are gone and the operator is shutting down."""
+
+        if self._is_shutting_down and len(self._sessions) == 0:
+            Daily.deinit()
+            return True
+
+        # Check each session to see if it's been destroyed.
+        for session in self._sessions:
+            if session.is_destroyed:
+                print(
+                    "REMOVED SESSION. ALL THREADS:",
+                    threading.active_count())
+                for thread in threading.enumerate():
+                    print(thread.name, thread.is_alive(), thread.ident)
+                self._sessions.remove(session)
+        return False

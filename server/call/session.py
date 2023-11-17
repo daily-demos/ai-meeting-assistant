@@ -10,14 +10,12 @@ import sys
 import threading
 import time
 from asyncio import Future
-from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 from logging import Logger
-from typing import Callable, Protocol
 
 import polling2
 import requests
-from daily import Daily, EventHandler, CallClient
+from daily import EventHandler, CallClient
 
 from server.config import Config
 from server.llm.openai_assistant import OpenAIAssistant
@@ -46,12 +44,6 @@ class Summary:
     retrieved_at: time.time()
 
 
-class OnShutdown(Protocol):
-    """Class that defines the signature of a callback invoked when a session is destroyed"""
-
-    def __call__(self, id: str, room_url: str) -> None: ...
-
-
 class Session(EventHandler):
     """Class representing a single meeting happening within a Daily room."""
 
@@ -65,15 +57,14 @@ class Session(EventHandler):
     _room: Room
 
     # Shutdown-related properties
-    _on_shutdown: Callable[[str, str], None]
+    _is_destroyed: bool = False
     _shutdown_timer: threading.Timer | None = None
 
-    def __init__(self, config: Config, on_shutdown: OnShutdown,
+    def __init__(self, config: Config,
                  room_duration_mins: int = None):
         super().__init__()
         self._config = config
         self._summary = None
-        self._on_shutdown = on_shutdown
         self.init(room_duration_mins)
         self._logger = self.create_logger(self._room.name)
         self._assistant = OpenAIAssistant(
@@ -90,6 +81,10 @@ class Session(EventHandler):
     def id(self) -> str:
         return self._id
 
+    @property
+    def is_destroyed(self) -> bool:
+        return self._is_destroyed
+
     def init(self, room_duration_mins: int = None) -> str:
         """Creates a Daily room and uses it to start a session"""
         room = self.create_room(room_duration_mins)
@@ -105,7 +100,7 @@ class Session(EventHandler):
             polling2.poll(
                 target=self.get_participant_count,
                 check_success=lambda count: count > 0,
-                step=0.5,
+                step=3,
                 timeout=300)
         except polling2.TimeoutException as e:
             self._logger.error("Timed out waiting for participants to join")
@@ -251,8 +246,7 @@ class Session(EventHandler):
         if error:
             self._logger.error(
                 "Encountered error while leaving meeting: %s", error)
-        if self._on_shutdown:
-            self._on_shutdown(self._id, self._room.url)
+        self._is_destroyed = True
 
     def on_joined_meeting(self, join_data, error):
         """Callback invoked when the bot has joined the Daily room."""
