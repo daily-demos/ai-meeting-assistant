@@ -62,6 +62,7 @@ export const ClosedCaptions = () => {
 
   const { isTranscribing } = useTranscription({
     onTranscriptionStarted: useCallback(() => {
+      if (!audioRef.current) return;
       audioRef.current.play();
     }, []),
     onTranscriptionAppData: useCallback((ev) => {

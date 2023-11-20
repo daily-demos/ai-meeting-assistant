@@ -1,7 +1,6 @@
 import DailyIframe from "@daily-co/daily-js";
 import { DailyProvider } from "@daily-co/daily-react";
 import { useEffect, useRef, useState } from "react";
-import copy from "copy-to-clipboard";
 import { ClosedCaptions, disableCCId } from "./ClosedCaptions";
 import { RobotButtonEffects, robotBtnId } from "./RobotButtonEffects";
 import {
@@ -9,8 +8,7 @@ import {
   getOpenRobotButton,
 } from "../utils/custom-buttons";
 import { GlobalStyles } from "./GlobalStyles";
-import { DoneIcon } from "./icons/DoneIcon";
-import { CopyIcon } from "./icons/CopyIcon";
+import { CopyRoomURLButton } from "./CopyRoomURLButton";
 
 export default function App() {
   const [url, setUrl] = useState("");
@@ -18,7 +16,7 @@ export default function App() {
   const [isJoining, setIsJoining] = useState(false);
   const wrapperRef = useRef(null);
 
-  const handleJoinClick = async () => {
+  const handleCreateRoomClick = async () => {
     setIsJoining(true);
     const response = await fetch("/api/create-session", {
       method: "POST",
@@ -45,7 +43,7 @@ export default function App() {
         const frame = DailyIframe.createFrame(wrapperRef.current, {
           showLeaveButton: true,
           showUserNameChangeUI: true,
-          url: url,
+          url,
           customIntegrations: {
             assistant: {
               label: "AI Assistant",
@@ -77,36 +75,14 @@ export default function App() {
     [url],
   );
 
-  const [copied, setCopied] = useState(false);
-  const handleCopyURL = () => {
-    if (copy(url)) {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 3000);
-    }
-  };
-
   return (
     <DailyProvider callObject={daily}>
       <div className="App">
         <h1>Daily AI Meeting Assistant Demo</h1>
         {url ? (
-          <>
-            <div className="actions">
-              <button disabled={copied} onClick={handleCopyURL}>
-                {copied ? (
-                  <>
-                    <DoneIcon size={16} />
-                    <span>Copied</span>
-                  </>
-                ) : (
-                  <>
-                    <CopyIcon size={16} />
-                    <span>Copy room URL</span>
-                  </>
-                )}
-              </button>
-            </div>
-          </>
+          <div className="actions">
+            <CopyRoomURLButton url={url} />
+          </div>
         ) : (
           <>
             <p>
@@ -117,7 +93,7 @@ export default function App() {
               Once there's enough context, you can ask the AI for a summary or
               other information, based on the spoken words.
             </p>
-            <button disabled={isJoining} onClick={handleJoinClick}>
+            <button disabled={isJoining} onClick={handleCreateRoomClick}>
               Create room and join
             </button>
             <div>or enter room URL</div>

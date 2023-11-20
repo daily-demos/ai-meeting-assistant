@@ -8,9 +8,6 @@ import { VolumeOnIcon } from "./icons/VolumeOnIcon";
 import { VolumeOffIcon } from "./icons/VolumeOffIcon";
 
 export const AIAssistant = ({ roomUrl }) => {
-  /**
-   * Holds messages from chatting with the bot.
-   */
   const [chatHistory, setChatHistory] = useState([]);
 
   const [isPrompting, setIsPrompting] = useState(false);
