@@ -102,8 +102,9 @@ class Session(EventHandler):
                 check_success=lambda count: count > 0,
                 step=3,
                 timeout=300)
-        except polling2.TimeoutException as e:
+        except polling2.TimeoutException:
             self._logger.error("Timed out waiting for participants to join")
+            self._is_destroyed = True
             return
         self._logger.info(
             "Session detected at least one participant - joining")
@@ -186,7 +187,12 @@ class Session(EventHandler):
 
         res = requests.post(url,
                             headers=headers,
-                            json={'properties': {'room_name': room_name, 'is_owner': True, 'exp': token_expiry}})
+                            json={'properties':
+                                  {'room_name': room_name,
+                                   'is_owner': True,
+                                   'exp': token_expiry,
+                                   'permissions':
+                                   {'hasPresence': False}}})
 
         if not res.ok:
             raise Exception(
@@ -233,7 +239,7 @@ class Session(EventHandler):
         if not recipient_session_id:
             return answer
 
-        # If a recipient is provided, ths was likely a request through Daily's app message events.
+        # If a recipient is provided, this was likely a request through Daily's app message events.
         # Send the answer as an event as well.
         self._call_client.send_app_message({
             "kind": "assist",
@@ -255,6 +261,13 @@ class Session(EventHandler):
         """Callback invoked when the bot has joined the Daily room."""
         if error:
             raise Exception("failed to join meeting", error)
+
+        # If there is no one in the call, someone must have already left
+        # Start shutdown process in that case.
+        if self.maybe_start_shutdown():
+            # If starting shutdown, don't bother with the rest
+            # of the join-related operations
+            return
         self._id = join_data["participants"]["local"]["id"]
         self._call_client.start_transcription()
         self._call_client.set_user_name("Daily AI Assistant")
@@ -291,7 +304,7 @@ class Session(EventHandler):
         self.query_assistant(recipient, query)
 
     def on_participant_joined(self, participant):
-        # As soon as someone joins, stop shutdown process
+        # As soon as someone joins, stop shutdown process if one is in progress
         if self._shutdown_timer:
             self._logger.info("Participant joined - cancelling shutdown.")
             self._shutdown_timer.cancel()
@@ -301,12 +314,23 @@ class Session(EventHandler):
                             participant,
                             reason):
         """Callback invoked when a participant leaves the Daily room."""
+        self.maybe_start_shutdown()
+
+    def maybe_start_shutdown(self) -> bool:
+        """Checks if the session should be shut down, and if so, starts the shutdown process."""
         count = self._call_client.participant_counts()['present']
         self._logger.info(
-            "Session handling participant left. Participant count: %s", count)
-        if count == 1:
-            self._shutdown_timer = threading.Timer(60.0, self.shutdown)
-            self._shutdown_timer.start()
+            "Participant count: %s", count)
+
+        # If there is at least one present participant, do nothing.
+        if count > 0:
+            return False
+
+        # If there are no present participants left, wait 1 minute and
+        # start shutdown.
+        self._shutdown_timer = threading.Timer(60.0, self.shutdown)
+        self._shutdown_timer.start()
+        return True
 
     def set_session_data(self, room_name: str, bot_id: str):
         """Sets the bot session ID in the Daily room's session data."""
