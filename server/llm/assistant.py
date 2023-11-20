@@ -2,8 +2,14 @@
 from abc import ABC, abstractmethod
 
 
+class NoContextError(Exception):
+    """Raised when a query is made but no context is available"""
+    pass
+
+
 class Assistant(ABC):
     """Abstract class defining methods that should be implemented by any assistant"""
+
     @abstractmethod
     def register_new_context(self, new_text: str,
                              name: list[str] = None) -> str:

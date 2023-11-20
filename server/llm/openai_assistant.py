@@ -1,13 +1,11 @@
 """Module that defines an OpenAI assistant."""
-import dataclasses
 import logging
-from typing import Literal
 
 from openai import OpenAI
 from openai.types.chat import ChatCompletionMessageParam, ChatCompletionSystemMessageParam, \
     ChatCompletionUserMessageParam
 
-from server.llm.assistant import Assistant
+from server.llm.assistant import Assistant, NoContextError
 
 
 class OpenAIAssistant(Assistant):
@@ -46,9 +44,7 @@ class OpenAIAssistant(Assistant):
         """Submits a query to OpenAI with the stored context if one is provided.
         If a query is not provided, uses the default."""
         if len(self._context) == 0:
-            return ("Sorry! I don't have any context saved yet. "
-                    "Please try speaking to add some context and confirm that "
-                    "transcription is enabled.")
+            raise NoContextError()
 
         query = self._default_prompt
 
@@ -63,7 +59,6 @@ class OpenAIAssistant(Assistant):
                 model=self._model_name,
                 messages=messages,
                 temperature=0,
-                #    max_tokens=1024
             )
             for choice in res.choices:
                 if choice.finish_reason == "stop":

@@ -19,7 +19,7 @@ from daily import EventHandler, CallClient
 
 from server.config import Config
 from server.llm.openai_assistant import OpenAIAssistant
-from server.llm.assistant import Assistant
+from server.llm.assistant import Assistant, NoContextError
 
 
 @dataclasses.dataclass
@@ -216,14 +216,17 @@ class Session(EventHandler):
         # assistant.
         if not answer:
             self._logger.info("Querying assistant")
-            answer = self._assistant.query(custom_query)
-
-            # If there was no custom query provided, save this as cached
-            # summary.
-            if want_cached_summary:
-                self._logger.info("Saving general summary")
-                self._summary = Summary(
-                    content=answer, retrieved_at=time.time())
+            try:
+                answer = self._assistant.query(custom_query)
+                # If there was no custom query provided, save this as cached
+                # summary.
+                if want_cached_summary:
+                    self._logger.info("Saving general summary")
+                    self._summary = Summary(
+                        content=answer, retrieved_at=time.time())
+            except NoContextError:
+                answer = ("Sorry! I don't have any context saved yet. Please try speaking to add some context and "
+                          "confirm that transcription is enabled.")
 
         # If no recipient is provided, this was probably an HTTP request through the operator
         # Just return the answer string in that case.
