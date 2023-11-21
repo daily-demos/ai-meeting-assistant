@@ -1,3 +1,4 @@
+import copy from "copy-to-clipboard";
 import { useState } from "react";
 import { CopyIcon } from "./icons/CopyIcon";
 import { DoneIcon } from "./icons/DoneIcon";
