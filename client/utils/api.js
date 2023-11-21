@@ -1,5 +1,5 @@
 const buildPrompt = (question) =>
-  `AI adopts role of meeting assistant. Answer questions based on transcript. Always respond helpful, positive, concise and in clear text. No questions. User asks: ${question}`;
+  `AI adopts role of a positive, helpful, and concise meeting assistant. Given the transcript in context, answer the following question: "${question}". No square brackets, tags, or timestamps.`;
 
 export const fetchSummary = async (roomUrl) => {
   const response = await fetch(`/api/summary?room_url=${roomUrl}`, {
