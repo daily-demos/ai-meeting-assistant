@@ -25,10 +25,6 @@ class Operator():
         """Creates a session, which includes creating a Daily room."""
         session = Session(self._config, room_duration_mins)
         self._sessions.append(session)
-        print("CREATED SESSION. ALL THREADS:", threading.active_count())
-        for thread in threading.enumerate():
-            print(thread.name, thread.is_alive())
-
         return session.room_url
 
     def query_assistant(self, room_url: str, custom_query=None) -> str:
@@ -63,10 +59,5 @@ class Operator():
         # Check each session to see if it's been destroyed.
         for session in self._sessions:
             if session.is_destroyed:
-                print(
-                    "REMOVED SESSION. ALL THREADS:",
-                    threading.active_count())
-                for thread in threading.enumerate():
-                    print(thread.name, thread.is_alive(), thread.ident)
                 self._sessions.remove(session)
         return False
