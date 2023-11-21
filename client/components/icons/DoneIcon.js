@@ -1,3 +1,6 @@
+/**
+ * Source: https://fonts.google.com/icons
+ */
 export const DoneIcon = ({ size = 24 }) => {
   return (
     <svg

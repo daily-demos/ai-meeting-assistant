@@ -1,3 +1,6 @@
+/**
+ * Source: https://fonts.google.com/icons
+ */
 export const DeleteIcon = ({ size = 24 }) => {
   return (
     <svg
