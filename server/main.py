@@ -42,12 +42,16 @@ async def create_session():
         raw = await request.get_data()
         data = json.loads(raw or 'null')
         room_duration_mins = None
+        room_url = None
         if data:
             requested_duration_mins = data.get("room_duration_mins")
             if requested_duration_mins:
                 room_duration_mins = int(requested_duration_mins)
+            provided_room_url = data.get("room_url")
+            if provided_room_url:
+                room_url = provided_room_url
 
-        room_url = operator.create_session(room_duration_mins)
+        room_url = operator.create_session(room_duration_mins, room_url)
 
         return jsonify({
             "room_url": room_url
