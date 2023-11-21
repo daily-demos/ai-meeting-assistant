@@ -2,8 +2,14 @@
 
 .next
 node_modules
+LOG_DIR
 
 .env
 .env.local
+.idea
 .vercel
 /.vscode/
+venv
+
+# Elastic Beanstalk Files
+server/.elasticbeanstalk/*
