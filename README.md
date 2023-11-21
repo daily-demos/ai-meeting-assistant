@@ -2,21 +2,15 @@
 
 This demo shows how to build and run an AI meeting assistant based on Daily's transcription API alongside an embedded Prebuilt call.
 
-[ADD SCREENSHOT HERE]
-
-## Demo
-
-➡️ [Deployed demo]()
+**Note that the client code in this repository is still a work in progress. A final version of the client will be merged shortly.**
 
 ## How it works
 
-The server component uses [Daily's REST API](LINK) and [Daily's Python SDK](LINK) to create rooms and join them with 
-a bot assistant. The assistant joins with an [owner meeting token](LINK) and begins transcription. 
-The server component configures an [OpenAI _assistant_](LINK) for each session.
-Each incoming transcription line is stored. When the session is queried via an [`"app-message"` event](LINK) 
+The server component uses [Daily's REST API](https://docs.daily.co/reference/rest-api) and [Daily's Python SDK](https://docs.daily.co/reference/daily-python) to create rooms and join them with 
+a bot assistant. The assistant joins with an [owner meeting token](https://docs.daily.co/reference/rest-api/meeting-tokens) and begins transcription. 
+The server component configures an AI _assistant_ (in this case powered by OpenAI) for each session.
+Each incoming transcription line is stored. When the session is queried via an [`"app-message"` event](https://docs.daily.co/reference/daily-js/events/participant-events#app-message) 
 or an HTTP endpoint, the server component uses the stored transcription lines to generate a response from the OpenAI assistant.
-
-[ADD INFO ABOUT CLIENT HERE]
 
 ## Getting started
 
@@ -48,7 +42,7 @@ Open the displayed localhost port in your browser.
 ### Security
 Currently, HTTP endpoints used to query a session are not secured. Anybody with a room URL associated with an ongoing
 session can query the session. In a production environment, consider adding your own authenticatio layer or using
-[Daily's meeting tokens](LINK) to secure the endpoints.
+[Daily's meeting tokens](https://docs.daily.co/reference/rest-api/meeting-tokens) to secure the endpoints.
 
 ### Storage layer
 All transcription lines are currently stored in memory. In a production environment, consider using a more scalable
