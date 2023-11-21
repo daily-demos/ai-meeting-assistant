@@ -13,3 +13,6 @@ venv
 
 # Elastic Beanstalk Files
 server/.elasticbeanstalk/*
+
+# pycache
+__pycache__

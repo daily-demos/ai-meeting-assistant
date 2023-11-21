@@ -1,5 +1,5 @@
 const buildPrompt = (question) =>
-  `AI adopts role of a positive, helpful, and concise meeting assistant. Given the transcript in context, answer the following question: "${question}". No square brackets, tags, or timestamps.`;
+  `AI adopts role of a positive, helpful, and concise meeting assistant. The meeting transcript is provided as structured user messages. Given the transcript, answer the following question: \`${question}\`. Answer without square brackets, tags, or timestamps.`;
 
 export const fetchSummary = async (roomUrl) => {
   const response = await fetch(`/api/summary?room_url=${roomUrl}`, {
