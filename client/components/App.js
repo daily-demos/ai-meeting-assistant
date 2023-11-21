@@ -1,6 +1,6 @@
 import DailyIframe from "@daily-co/daily-js";
 import { DailyProvider } from "@daily-co/daily-react";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { ClosedCaptions, disableCCId } from "./ClosedCaptions";
 import { RobotButtonEffects, robotBtnId } from "./RobotButtonEffects";
 import {
@@ -9,28 +9,40 @@ import {
 } from "../utils/custom-buttons";
 import { GlobalStyles } from "./GlobalStyles";
 import { CopyRoomURLButton } from "./CopyRoomURLButton";
+import { useRouter } from "next/router";
 
 export default function App() {
+  const { query } = useRouter();
   const [url, setUrl] = useState("");
   const [daily, setDaily] = useState(null);
   const [isJoining, setIsJoining] = useState(false);
   const wrapperRef = useRef(null);
 
-  const handleCreateRoomClick = async () => {
+  const joinRoom = useCallback(async (url) => {
     setIsJoining(true);
     const response = await fetch("/api/create-session", {
       method: "POST",
+      body: JSON.stringify({
+        room_url: url,
+      }),
     });
     const body = await response.json();
     if (body.url) {
       setUrl(body.url);
     }
     setIsJoining(false);
-  };
+  }, []);
 
-  const handleSubmit = (ev) => {
+  useEffect(() => {
+    if (query.url && typeof query.url === "string") {
+      joinRoom(query.url);
+    }
+  }, [query]);
+
+  const handleSubmit = async (ev) => {
     ev.preventDefault();
-    setUrl(ev.target.elements.url.value);
+    const roomUrl = ev.target.elements?.url?.value;
+    joinRoom(roomUrl);
   };
 
   useEffect(
@@ -93,14 +105,17 @@ export default function App() {
               Once there's enough context, you can ask the AI for a summary or
               other information, based on the spoken words.
             </p>
-            <button disabled={isJoining} onClick={handleCreateRoomClick}>
-              Create room and join
-            </button>
-            <div>or enter room URL</div>
             <div>
               <form onSubmit={handleSubmit}>
-                <input type="url" name="url" required />
-                <button type="submit">Join</button>
+                <input
+                  readonly={isJoining}
+                  type="url"
+                  name="url"
+                  placeholder="Room URL (optional)"
+                />
+                <button disabled={isJoining} type="submit">
+                  Join
+                </button>
               </form>
             </div>
           </>

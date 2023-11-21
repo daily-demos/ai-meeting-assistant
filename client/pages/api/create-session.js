@@ -6,6 +6,7 @@ export default async function handler(req, res) {
       "Content-type": "application/json",
     },
     method: "POST",
+    body: req.body,
   });
 
   const body = await response.json();
