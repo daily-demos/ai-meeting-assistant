@@ -1,4 +1,4 @@
-const postQueryBackend = `http://daily-ai-assistant-wip4.eba-khngcrah.us-east-2.elasticbeanstalk.com/query`;
+const postQueryBackend = `${process.env.API_HOST}/query`;
 
 export default async function handler(req, res) {
   const response = await fetch(postQueryBackend, {

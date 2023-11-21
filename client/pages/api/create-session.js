@@ -1,4 +1,4 @@
-const createSessionBackend = `http://daily-ai-assistant-wip4.eba-khngcrah.us-east-2.elasticbeanstalk.com/session`;
+const createSessionBackend = `${process.env.API_HOST}/session`;
 
 export default async function handler(req, res) {
   const response = await fetch(createSessionBackend, {
