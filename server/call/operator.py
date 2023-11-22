@@ -70,5 +70,6 @@ class Operator():
         # Check each session to see if it's been destroyed.
         for session in self._sessions:
             if session.is_destroyed:
+                print("Removing destroyed session:", session.room_url)
                 self._sessions.remove(session)
         return False

@@ -58,12 +58,13 @@ class Session(EventHandler):
     _room: Room
 
     # Shutdown-related properties
-    _is_destroyed: bool = False
+    _is_destroyed: bool
     _shutdown_timer: threading.Timer | None = None
 
     def __init__(self, config: Config,
                  room_duration_mins: int = None, room_url: str = None):
         super().__init__()
+        self._is_destroyed = False
         self._config = config
         self._summary = None
         self.init(room_duration_mins, room_url)
@@ -219,8 +220,7 @@ class Session(EventHandler):
                                   {'room_name': room_name,
                                    'is_owner': True,
                                    'exp': token_expiry,
-                                   'permissions':
-                                   {'hasPresence': False}}})
+                                  }})
 
         if not res.ok:
             raise Exception(
@@ -283,13 +283,14 @@ class Session(EventHandler):
         if error:
             self._logger.error(
                 "Encountered error while leaving meeting: %s", error)
+        self._logger.info("Left meeting %s", self._room.url)
         self._is_destroyed = True
 
     def on_joined_meeting(self, join_data, error):
         """Callback invoked when the bot has joined the Daily room."""
         if error:
             raise Exception("failed to join meeting", error)
-
+        self._logger.info("Bot joined meeting %s", self._room.url)
         # If there is no one in the call, someone must have already left
         # Start shutdown process in that case.
         if self.maybe_start_shutdown():
@@ -301,8 +302,19 @@ class Session(EventHandler):
         self._call_client.set_user_name("Daily AI Assistant")
         self.set_session_data(self._room.name, self._id)
 
+
+    def on_error(self, message):
+        self._logger.error("Received meeting error: %s", message)
+
+    def on_transcription_started(self, status):
+        self._logger.info("Transcription started: %s", status)
+
+    def on_transcription_error(self, message):
+        self._logger.error("Received transcription error: %s", message)
+
     def on_transcription_message(self, message):
         """Callback invoked when a transcription message is received."""
+        self._logger.info("got transcription message: %s", message)
         user_name = message["user_name"]
         text = message["text"]
         timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')
@@ -351,8 +363,10 @@ class Session(EventHandler):
             "Participant count: %s", count)
 
         # If there is at least one present participant, do nothing.
-        if count > 0:
+        if count > 1:
             return False
+
+        self._logger.info("Starting shutdown timer")
 
         # If there are no present participants left, wait 1 minute and
         # start shutdown.

@@ -16,9 +16,11 @@ class OpenAIAssistant(Assistant):
     # For now, just store context in memory.
     _context: list[ChatCompletionMessageParam] = None
     _default_prompt = ChatCompletionSystemMessageParam(
-        content="AI adopts role of meeting recorder to provide concise meeting summaries incl. discussed key items, "
-                "decisions and action items. Based on the meeting transcript, write a summary that helps document all "
-                "key aspects of the conversation.", role="system")
+        content="AI adopts role of meeting recorder to provide short meeting summaries including discussed key "
+                "items, decisions and action items. Based on the meeting transcript only, write a summary that helps "
+                "document all key aspects of the conversation. Structure the answer into digestible chunks. Do not "
+                "assume things that are not in the transcript. Answer without square brackets, tags, or timestamps.",
+                role="system")
 
     def __init__(self, api_key: str, model_name: str = None,
                  logger: logging.Logger = None):
@@ -46,25 +48,28 @@ class OpenAIAssistant(Assistant):
         if len(self._context) == 0:
             raise NoContextError()
 
+        max_tokens = None
         query = self._default_prompt
 
         if custom_query:
             query = ChatCompletionSystemMessageParam(
                 content=custom_query, role="system")
-        messages = [query] + self._context
-        self._logger.debug("Querying %s", messages)
+        else:
+            max_tokens = 190
+        messages = self._context + [query]
 
         try:
             res = self._client.chat.completions.create(
                 model=self._model_name,
                 messages=messages,
                 temperature=0,
+                max_tokens=max_tokens
             )
             for choice in res.choices:
                 if choice.finish_reason == "stop":
                     answer = choice.message.content
                     return answer
-            raise Exception("No usable choice found in OpenAI response")
+            raise Exception("No usable choice found in OpenAI response: %s", res.choices)
         except Exception as e:
             raise Exception(f"Failed to query OpenAI: {e}") from e
 
