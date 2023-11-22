@@ -7,6 +7,23 @@ import { DeleteIcon } from "./icons/DeleteIcon";
 import { VolumeOnIcon } from "./icons/VolumeOnIcon";
 import { VolumeOffIcon } from "./icons/VolumeOffIcon";
 
+const responseErrorText =
+  "Uh oh! While I tried to get a response for you, an error occurred! Please try again.";
+const summaryErrorText =
+  "Uh oh! While I tried to get a summary for you, an error occurred! Please try again.";
+
+const createUserMessage = (message) => ({
+  role: "user",
+  content: message,
+  date: new Date(),
+});
+
+const createAssistantMessage = (message) => ({
+  role: "assistant",
+  content: message,
+  date: new Date(),
+});
+
 export const AIAssistant = ({ roomUrl }) => {
   const [chatHistory, setChatHistory] = useState([]);
 
@@ -37,35 +54,16 @@ export const AIAssistant = ({ roomUrl }) => {
     const query = inputRef.current.value.trim();
     if (!query) return;
     inputRef.current.value = "";
-    setChatHistory((prev) => [
-      ...prev,
-      {
-        role: "user",
-        content: query,
-        date: new Date(),
-      },
-    ]);
+    setChatHistory((prev) => [...prev, createUserMessage(query)]);
     try {
       setIsPrompting(true);
       const response = await fetchQuery(roomUrl, query);
-      setChatHistory((prev) => [
-        ...prev,
-        {
-          role: "assistant",
-          content: response,
-          date: new Date(),
-        },
-      ]);
+      setChatHistory((prev) => [...prev, createAssistantMessage(response)]);
       playAudioMsg();
     } catch {
       setChatHistory((prev) => [
         ...prev,
-        {
-          role: "assistant",
-          content:
-            "Uh oh! While I tried to get a response for you, an error occurred! Please try again.",
-          date: new Date(),
-        },
+        createAssistantMessage(responseErrorText),
       ]);
       playAudioError();
     } finally {
@@ -77,24 +75,12 @@ export const AIAssistant = ({ roomUrl }) => {
     try {
       setIsSummarizing(true);
       const response = await fetchSummary(roomUrl);
-      setChatHistory((prev) => [
-        ...prev,
-        {
-          role: "assistant",
-          content: response,
-          date: new Date(),
-        },
-      ]);
+      setChatHistory((prev) => [...prev, createAssistantMessage(response)]);
       playAudioMsg();
     } catch {
       setChatHistory((prev) => [
         ...prev,
-        {
-          role: "assistant",
-          content:
-            "Uh oh! While I tried to get a summary for you, an error occurred! Please try again.",
-          date: new Date(),
-        },
+        createAssistantMessage(summaryErrorText),
       ]);
       playAudioError();
     } finally {
