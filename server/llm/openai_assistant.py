@@ -19,7 +19,8 @@ class OpenAIAssistant(Assistant):
         content="AI adopts role of meeting recorder to provide short meeting summaries including discussed key "
                 "items, decisions and action items. Based on the meeting transcript only, write a summary that helps "
                 "document all key aspects of the conversation. Structure the answer into digestible chunks. Do not "
-                "assume things that are not in the transcript. Answer without square brackets, tags, or timestamps.",
+                "assume things that are not in the transcript. Answer without square brackets, tags, or timestamps."
+                "The summary should be no more than 6 sentences long.",
                 role="system")
 
     def __init__(self, api_key: str, model_name: str = None,
@@ -48,14 +49,12 @@ class OpenAIAssistant(Assistant):
         if len(self._context) == 0:
             raise NoContextError()
 
-        max_tokens = None
         query = self._default_prompt
 
         if custom_query:
             query = ChatCompletionSystemMessageParam(
                 content=custom_query, role="system")
-        else:
-            max_tokens = 190
+
         messages = self._context + [query]
 
         try:
@@ -63,10 +62,10 @@ class OpenAIAssistant(Assistant):
                 model=self._model_name,
                 messages=messages,
                 temperature=0,
-                max_tokens=max_tokens
             )
             for choice in res.choices:
-                if choice.finish_reason == "stop":
+                reason = choice.finish_reason
+                if reason == "stop" or reason == "length":
                     answer = choice.message.content
                     return answer
             raise Exception("No usable choice found in OpenAI response: %s", res.choices)
