@@ -1,4 +1,4 @@
-const createSessionBackend = `http://127.0.0.1:5000/session`;
+const createSessionBackend = `${process.env.API_HOST}/session`;
 
 export default async function handler(req, res) {
   const response = await fetch(createSessionBackend, {
@@ -6,20 +6,17 @@ export default async function handler(req, res) {
       "Content-type": "application/json",
     },
     method: "POST",
+    body: req.body,
   });
+
+  const body = await response.json();
 
   if (!response.ok) {
     res.status(500).json({
       error: "Error when creating session",
-      details: await response.json(),
+      details: body,
     });
     return;
   }
-  const body = await response.json();
-
-  if (response.ok) {
-    res.status(200).json({ url: body.room_url });
-  } else {
-    res.status(500).json({ error: "Error when creating room", details: body });
-  }
+  res.status(200).json({ url: body.room_url });
 }

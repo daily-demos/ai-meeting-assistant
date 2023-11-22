@@ -1,151 +1,137 @@
 import DailyIframe from "@daily-co/daily-js";
-import { DailyAudio, DailyProvider } from "@daily-co/daily-react";
-import { useRef, useState } from "react";
-import { AIAssistant } from "./AIAssistant";
-import copy from "copy-to-clipboard";
+import { DailyProvider } from "@daily-co/daily-react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { ClosedCaptions, disableCCId } from "./ClosedCaptions";
+import { RobotButtonEffects, robotBtnId } from "./RobotButtonEffects";
+import {
+  getDisableCCButton,
+  getOpenRobotButton,
+} from "../utils/custom-buttons";
+import { GlobalStyles } from "./GlobalStyles";
+import { CopyRoomURLButton } from "./CopyRoomURLButton";
+import { useRouter } from "next/router";
 
 export default function App() {
+  const { query } = useRouter();
   const [url, setUrl] = useState("");
   const [daily, setDaily] = useState(null);
   const [isJoining, setIsJoining] = useState(false);
   const wrapperRef = useRef(null);
 
-  const handleJoinClick = async () => {
+  const joinRoom = useCallback(async (url) => {
     setIsJoining(true);
     const response = await fetch("/api/create-session", {
       method: "POST",
+      body: JSON.stringify({
+        room_url: url,
+      }),
     });
     const body = await response.json();
     if (body.url) {
       setUrl(body.url);
-      if (DailyIframe.getCallInstance()) {
-        await DailyIframe.getCallInstance().destroy();
-      }
-      const frame = DailyIframe.createFrame(wrapperRef.current, {
-        showLeaveButton: true,
-        showUserNameChangeUI: true,
-        url: body.url,
-      });
-      setDaily(frame);
-      await frame.join();
     }
     setIsJoining(false);
-  };
+  }, []);
 
-  const handleLeaveClick = async () => {
-    await daily.destroy();
-    setDaily(null);
-    setUrl("");
-  };
-
-  const [copied, setCopied] = useState(false);
-  const handleCopyURL = () => {
-    if (copy(url)) {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 3000);
+  useEffect(() => {
+    if (query.url && typeof query.url === "string") {
+      joinRoom(query.url);
     }
+  }, [query]);
+
+  const handleSubmit = async (ev) => {
+    ev.preventDefault();
+    const roomUrl = ev.target.elements?.url?.value;
+    joinRoom(roomUrl);
   };
+
+  useEffect(
+    function initAppEffect() {
+      if (!url) return;
+      const initFrame = async () => {
+        if (DailyIframe.getCallInstance()) {
+          await DailyIframe.getCallInstance().destroy();
+        }
+        const frame = DailyIframe.createFrame(wrapperRef.current, {
+          showLeaveButton: true,
+          showUserNameChangeUI: true,
+          url,
+          customIntegrations: {
+            assistant: {
+              label: "AI Assistant",
+              location: "sidebar",
+              src:
+                location.protocol +
+                "//" +
+                location.host +
+                "/assistant?room_url=" +
+                url,
+            },
+          },
+          customTrayButtons: {
+            [robotBtnId]: getOpenRobotButton(),
+            [disableCCId]: getDisableCCButton(),
+          },
+        });
+        setDaily(frame);
+        await frame.join();
+
+        frame.once("left-meeting", () => {
+          frame.destroy();
+          setDaily(null);
+          setUrl("");
+        });
+      };
+      initFrame();
+    },
+    [url],
+  );
 
   return (
     <DailyProvider callObject={daily}>
       <div className="App">
         <h1>Daily AI Meeting Assistant Demo</h1>
         {url ? (
-          <>
-            <div className="actions">
-              <button disabled={copied} onClick={handleCopyURL}>
-                {copied ? "✅ Copied" : "📋 Copy room URL"}
-              </button>
-              <button onClick={handleLeaveClick}>🚪 Leave</button>
-            </div>
-          </>
+          <div className="actions">
+            <CopyRoomURLButton url={url} />
+          </div>
         ) : (
           <>
-            <p>Join the call and the AI Assistant bot joins automatically.</p>
+            <p>
+              Join the call and the AI Assistant bot joins and starts
+              transcription automatically.
+            </p>
             <p>
               Once there's enough context, you can ask the AI for a summary or
               other information, based on the spoken words.
             </p>
             <div>
-              <button disabled={isJoining} onClick={handleJoinClick}>
-                Join a call
-              </button>
+              <form onSubmit={handleSubmit}>
+                <input
+                  readonly={isJoining}
+                  type="url"
+                  name="url"
+                  placeholder="Room URL (optional)"
+                />
+                <button disabled={isJoining} type="submit">
+                  Join
+                </button>
+              </form>
             </div>
           </>
         )}
         <div className="container">
           <div className="call">
             <div id="frame" ref={wrapperRef} />
+            <ClosedCaptions />
+            <RobotButtonEffects />
           </div>
-          {url && <AIAssistant />}
         </div>
       </div>
-      <DailyAudio />
-      <style jsx global>{`
-        *,
-        *::before,
-        *::after {
-          box-sizing: border-box;
-        }
-
-        :root {
-          --bg: #121a24;
-          --border: #2b3f56;
-          --text: #fff;
-          --highlight: #feaa2c;
-          --highlight50: #feaa2caa;
-
-          height: 100%;
-          margin: 0;
-          padding: 0;
-          width: 100%;
-        }
-
-        body {
-          background: var(--bg);
-          color: var(--text);
-          font-family:
-            -apple-system,
-            BlinkMacSystemFont,
-            Segoe UI,
-            Roboto,
-            Oxygen,
-            Ubuntu,
-            Cantarell,
-            Fira Sans,
-            Droid Sans,
-            Helvetica Neue,
-            sans-serif;
-          height: 100%;
-          width: 100%;
-          margin: 0;
-          padding: 0;
-        }
-
-        #__next {
-          height: 100%;
-        }
-
-        button {
-          background: var(--highlight);
-          border: none;
-          border-radius: 4px;
-          color: var(--text);
-          cursor: pointer;
-          outline: 0 solid var(--highlight50);
-          padding: 4px 8px;
-        }
-        button:not([disabled]):hover,
-        button:not([disabled]):focus-visible {
-          outline-width: 2px;
-        }
-        button[disabled] {
-          cursor: default;
-          opacity: 0.5;
-        }
-      `}</style>
+      <GlobalStyles />
       <style jsx>{`
         .App {
+          align-items: center;
           display: flex;
           flex-direction: column;
           font-family: sans-serif;
@@ -155,6 +141,11 @@ export default function App() {
           position: relative;
           text-align: center;
           width: 100%;
+        }
+        form {
+          display: flex;
+          gap: 8px;
+          justify-content: center;
         }
         .actions {
           display: flex;
@@ -169,6 +160,7 @@ export default function App() {
           justify-content: center;
           min-height: 0;
           position: relative;
+          width: 100%;
         }
         .call {
           align-items: center;
@@ -176,9 +168,10 @@ export default function App() {
           flex-direction: column;
           flex: 1 1 auto;
           gap: 8px;
-          justify-content: center;
-          width: 60%;
           height: 100%;
+          justify-content: center;
+          position: relative;
+          width: 60%;
         }
         #frame {
           align-self: stretch;
