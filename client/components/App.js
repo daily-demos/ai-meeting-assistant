@@ -108,7 +108,7 @@ export default function App() {
             <div>
               <form onSubmit={handleSubmit}>
                 <input
-                  readonly={isJoining}
+                  readOnly={isJoining}
                   type="url"
                   name="url"
                   placeholder="Room URL (optional)"
