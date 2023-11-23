@@ -13,7 +13,7 @@ export const disableCCId = "disable-cc";
 
 const captionTime = 5000;
 
-export const ClosedCaptions = () => {
+export const ClosedCaptions = ({ style = {} }) => {
   const daily = useDaily();
   const [enabled, setEnabled] = useState(true);
   const [hasSidebar, setHasSidebar] = useState(false);
@@ -90,6 +90,7 @@ export const ClosedCaptions = () => {
       className={classNames("closed-captions", {
         sidebar: hasSidebar,
       })}
+      style={style}
     >
       <audio ref={audioRef} src="/transcription-started.mp3" playsInline />
       {isTranscribing && enabled && (
