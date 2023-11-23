@@ -2,10 +2,15 @@ import DailyIframe from "@daily-co/daily-js";
 import { DailyProvider } from "@daily-co/daily-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ClosedCaptions, disableCCId } from "./ClosedCaptions";
-import { RobotButtonEffects, robotBtnId } from "./RobotButtonEffects";
+import {
+  CustomButtonEffects,
+  assistantId,
+  transcriptId,
+} from "./CustomButtonEffects";
 import {
   getDisableCCButton,
   getOpenRobotButton,
+  getOpenTranscriptButton,
 } from "../utils/custom-buttons";
 import { GlobalStyles } from "./GlobalStyles";
 import { CopyRoomURLButton } from "./CopyRoomURLButton";
@@ -67,10 +72,21 @@ export default function App() {
                 "/assistant?room_url=" +
                 url,
             },
+            transcript: {
+              label: "Transcript",
+              location: "sidebar",
+              src:
+                location.protocol +
+                "//" +
+                location.host +
+                "/transcript?room_url=" +
+                url,
+            },
           },
           customTrayButtons: {
-            [robotBtnId]: getOpenRobotButton(),
+            [assistantId]: getOpenRobotButton(),
             [disableCCId]: getDisableCCButton(),
+            [transcriptId]: getOpenTranscriptButton(),
           },
         });
         setDaily(frame);
@@ -124,7 +140,7 @@ export default function App() {
           <div className="call">
             <div id="frame" ref={wrapperRef} />
             <ClosedCaptions />
-            <RobotButtonEffects />
+            <CustomButtonEffects />
           </div>
         </div>
       </div>

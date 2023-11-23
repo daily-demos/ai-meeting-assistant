@@ -18,9 +18,5 @@ export default async function handler(req, res) {
   }
   const body = await response.json();
 
-  let botResponse = body.response;
-
-  if (!botResponse.startsWith("🤖")) botResponse = `🤖 ${botResponse}`;
-
-  res.status(200).json({ response: botResponse });
+  res.status(200).json({ response: body.response });
 }
