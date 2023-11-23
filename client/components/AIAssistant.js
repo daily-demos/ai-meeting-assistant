@@ -6,6 +6,7 @@ import { GlobalStyles } from "./GlobalStyles";
 import { DeleteIcon } from "./icons/DeleteIcon";
 import { VolumeOnIcon } from "./icons/VolumeOnIcon";
 import { VolumeOffIcon } from "./icons/VolumeOffIcon";
+import { SummaryIcon } from "./icons/SummaryIcon";
 
 const responseErrorText =
   "Uh oh! While I tried to get a response for you, an error occurred! Please try again.";
@@ -25,6 +26,7 @@ const createAssistantMessage = (message) => ({
 });
 
 export const AIAssistant = ({ roomUrl }) => {
+  const [summary, setSummary] = useState(null);
   const [chatHistory, setChatHistory] = useState([]);
 
   const [isPrompting, setIsPrompting] = useState(false);
@@ -75,13 +77,10 @@ export const AIAssistant = ({ roomUrl }) => {
     try {
       setIsSummarizing(true);
       const response = await fetchSummary(roomUrl);
-      setChatHistory((prev) => [...prev, createAssistantMessage(response)]);
+      setSummary(response);
       playAudioMsg();
     } catch {
-      setChatHistory((prev) => [
-        ...prev,
-        createAssistantMessage(summaryErrorText),
-      ]);
+      setSummary(summaryErrorText);
       playAudioError();
     } finally {
       setIsSummarizing(false);
@@ -98,6 +97,18 @@ export const AIAssistant = ({ roomUrl }) => {
   return (
     <div className="ai-assistant">
       <div className="wrapper">
+        <button
+          className="summary-btn"
+          disabled={isSummarizing}
+          type="button"
+          onClick={handleSummaryClick}
+        >
+          <SummaryIcon size={16} />
+          <span>{summary ? "Refresh summary" : "Get summary"}</span>
+        </button>
+        <div className="summary">
+          {!!summary && <div className="message answer">{summary}</div>}
+        </div>
         <div className="actions">
           {chatHistory.length > 0 && (
             <button onClick={() => setChatHistory([])}>
@@ -144,11 +155,6 @@ export const AIAssistant = ({ roomUrl }) => {
             </div>
           ))}
         </div>
-        <div className="quick-actions">
-          <button disabled={isSummarizing} onClick={handleSummaryClick}>
-            Summary
-          </button>
-        </div>
         <form className="input" onSubmit={handleAskAISubmit}>
           <input
             ref={inputRef}
@@ -179,14 +185,6 @@ export const AIAssistant = ({ roomUrl }) => {
           gap: 8px;
           justify-content: stretch;
         }
-        .actions {
-          display: flex;
-          gap: 4px;
-          justify-content: flex-end;
-        }
-        .actions button img {
-          display: block;
-        }
         .wrapper {
           padding: 8px;
 
@@ -195,44 +193,54 @@ export const AIAssistant = ({ roomUrl }) => {
 
           display: flex;
           flex-direction: column;
-          gap: 8px;
+        }
+        .summary-btn {
+          align-self: flex-start;
+          width: auto;
+        }
+        .summary {
+          border-bottom: 1px solid var(--border);
+          flex: 1 1 50%;
+          overflow-y: auto;
+          padding: 8px 0;
         }
         .stream {
-          flex-grow: 1;
-
+          flex: 1 1 50%;
           overflow-y: auto;
+          padding: 8px 0;
         }
-        .stream .message {
+        .actions {
+          display: flex;
+          gap: 4px;
+          justify-content: space-between;
+          margin-top: 8px;
+        }
+        .actions button img {
+          display: block;
+        }
+        .message {
           border-radius: 4px;
           padding: 8px;
           text-align: left;
           width: auto;
         }
-        .stream .message.question {
+        .message.question {
           border: 1px solid var(--border);
           margin-left: 2rem;
         }
-        .stream .message.answer {
+        .message.answer {
           background: var(--highlight50);
           color: #000;
           margin-right: 2rem;
           white-space: pre-wrap;
         }
-        .stream .message :global(time) {
+        .message :global(time) {
           display: block;
           font-style: italic;
           font-size: 0.75rem;
         }
         .stream .message + .message {
           margin-top: 4px;
-        }
-        .quick-actions {
-          display: flex;
-          gap: 4px;
-          justify-content: flex-start;
-        }
-        .quick-actions button {
-          width: auto;
         }
         .input {
           display: flex;

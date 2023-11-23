@@ -9,7 +9,7 @@ export const GlobalStyles = () => {
 
       :root {
         --bg: #fff;
-        --border: #2b3f56;
+        --border: #c8d1dc;
         --text: #121a24;
         --highlight: #1bebb9;
         --highlight50: #d1fbf1;

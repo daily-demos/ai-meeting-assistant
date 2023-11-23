@@ -85,8 +85,8 @@ export default function App() {
           },
           customTrayButtons: {
             [assistantId]: getOpenRobotButton(),
-            [disableCCId]: getDisableCCButton(),
             [transcriptId]: getOpenTranscriptButton(),
+            [disableCCId]: getDisableCCButton(),
           },
         });
         setDaily(frame);
