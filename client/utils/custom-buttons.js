@@ -1,3 +1,4 @@
+import TranscriptIcon from "../public/article.svg";
 import CCDisabledIcon from "../public/cc-disabled.svg";
 import CCIcon from "../public/cc.svg";
 import RobotIcon from "../public/robot.svg";
@@ -28,4 +29,16 @@ export const getCloseRobotButton = () => ({
   iconPath: getIconPath(RobotIcon),
   label: "AI Assistant",
   tooltip: "Close AI Assistant",
+});
+
+export const getOpenTranscriptButton = () => ({
+  iconPath: getIconPath(TranscriptIcon),
+  label: "Transcript",
+  tooltip: "Open Transcript",
+});
+
+export const getCloseTranscriptButton = () => ({
+  iconPath: getIconPath(TranscriptIcon),
+  label: "Transcript",
+  tooltip: "Close Transcript",
 });

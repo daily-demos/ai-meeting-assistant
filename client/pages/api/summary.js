@@ -1,4 +1,6 @@
-const getSummaryBackend = `${process.env.API_HOST}/summary`;
+import { API_HOST } from "../../utils/api";
+
+const getSummaryBackend = `${API_HOST}/summary`;
 
 export default async function handler(req, res) {
   const roomUrl = req.query.room_url;
@@ -22,9 +24,5 @@ export default async function handler(req, res) {
   }
   const body = await response.json();
 
-  let summary = body.summary;
-
-  if (!summary.startsWith("🤖")) summary = `🤖 ${summary}`;
-
-  res.status(200).json({ summary });
+  res.status(200).json({ summary: body.summary });
 }

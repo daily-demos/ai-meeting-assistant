@@ -1,4 +1,6 @@
-const createSessionBackend = `${process.env.API_HOST}/session`;
+import { API_HOST } from "../../utils/api";
+
+const createSessionBackend = `${API_HOST}/session`;
 
 export default async function handler(req, res) {
   const response = await fetch(createSessionBackend, {

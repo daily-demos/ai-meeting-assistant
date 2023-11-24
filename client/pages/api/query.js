@@ -1,4 +1,6 @@
-const postQueryBackend = `${process.env.API_HOST}/query`;
+import { API_HOST } from "../../utils/api";
+
+const postQueryBackend = `${API_HOST}/query`;
 
 export default async function handler(req, res) {
   const response = await fetch(postQueryBackend, {
@@ -18,9 +20,5 @@ export default async function handler(req, res) {
   }
   const body = await response.json();
 
-  let botResponse = body.response;
-
-  if (!botResponse.startsWith("🤖")) botResponse = `🤖 ${botResponse}`;
-
-  res.status(200).json({ response: botResponse });
+  res.status(200).json({ response: body.response });
 }
