@@ -1,4 +1,6 @@
-const getSummaryBackend = `${process.env.API_HOST}/summary`;
+import { API_HOST } from "../../utils/api";
+
+const getSummaryBackend = `${API_HOST}/summary`;
 
 export default async function handler(req, res) {
   const roomUrl = req.query.room_url;

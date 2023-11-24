@@ -1,4 +1,6 @@
-const postQueryBackend = `${process.env.API_HOST}/query`;
+import { API_HOST } from "../../utils/api";
+
+const postQueryBackend = `${API_HOST}/query`;
 
 export default async function handler(req, res) {
   const response = await fetch(postQueryBackend, {
