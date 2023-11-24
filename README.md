@@ -2,7 +2,7 @@
 
 This demo shows how to build and run an AI meeting assistant based on Daily's transcription API alongside an embedded Prebuilt call.
 
-**Note that the client code in this repository is still a work in progress. A final version of the client will be merged shortly.**
+![Screenshot of the demo showing an AI-generated summary of the conversation so far](./screenshot.png)
 
 ## How it works
 
@@ -47,3 +47,9 @@ session can query the session. In a production environment, consider adding your
 ### Storage layer
 All transcription lines are currently stored in memory. In a production environment, consider using a more scalable
 storage solution.
+
+### OpenAI token limits
+This demo uses GPT 3.5 Turbo with a 16,000-token limit by default. You can optionally specify another model, like
+GPT 4 Turbo, which has a 120,000-token limit, by setting the `OPENAI_MODEL_NAME` environment variable. Additionally,
+for a production use case, optimizations can be made for how context is stored and updated. For example, context can be
+strategically batched and discarded when no longer required. The appropriate approach will depend on your use case.
