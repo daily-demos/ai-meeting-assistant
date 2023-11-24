@@ -21,16 +21,27 @@ class Operator():
         t = threading.Thread(target=self.cleanup)
         t.start()
 
-    def create_session(self, room_duration_mins: int = None) -> str:
+    def create_session(self, room_duration_mins: int = None,
+                       room_url: str = None) -> str:
         """Creates a session, which includes creating a Daily room."""
-        session = Session(self._config, room_duration_mins)
+
+        # If an active session for given room URL already exists,
+        # don't create a new one
+        if room_url:
+            for s in self._sessions:
+                if s.room_url == room_url and not s.is_destroyed:
+                    print("found session:", s.room_url)
+                    return s.room_url
+
+        # Create a new session
+        session = Session(self._config, room_duration_mins, room_url)
         self._sessions.append(session)
         return session.room_url
 
     def query_assistant(self, room_url: str, custom_query=None) -> str:
         """Queries the assistant for the provided room URL."""
         for s in self._sessions:
-            if s.room_url == room_url:
+            if s.room_url == room_url and not s.is_destroyed:
                 return s.query_assistant(custom_query=custom_query)
         raise Exception(
             f"Requested room URL {room_url} not found in active sessions")
@@ -59,5 +70,6 @@ class Operator():
         # Check each session to see if it's been destroyed.
         for session in self._sessions:
             if session.is_destroyed:
+                print("Removing destroyed session:", session.room_url)
                 self._sessions.remove(session)
         return False

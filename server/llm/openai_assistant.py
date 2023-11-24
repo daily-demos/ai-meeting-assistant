@@ -16,9 +16,16 @@ class OpenAIAssistant(Assistant):
     # For now, just store context in memory.
     _context: list[ChatCompletionMessageParam] = None
     _default_prompt = ChatCompletionSystemMessageParam(
-        content="AI adopts role of meeting recorder to provide concise meeting summaries incl. discussed key items, "
-                "decisions and action items. Based on the meeting transcript, write a summary that helps document all "
-                "key aspects of the conversation.", role="system")
+        content="""
+         Based on the provided meeting transcript, please create a concise summary. Your summary should include:
+
+            1. Key discussion points.
+            2. Decisions made.
+            3. Action items assigned.
+
+        Keep the summary within six sentences, ensuring it captures the essence of the conversation. Structure it in clear, digestible parts for easy understanding. Rely solely on information from the transcript; do not infer or add information not explicitly mentioned. Exclude any square brackets, tags, or timestamps from the summary.
+        """,
+        role="system")
 
     def __init__(self, api_key: str, model_name: str = None,
                  logger: logging.Logger = None):
@@ -51,8 +58,8 @@ class OpenAIAssistant(Assistant):
         if custom_query:
             query = ChatCompletionSystemMessageParam(
                 content=custom_query, role="system")
-        messages = [query] + self._context
-        self._logger.debug("Querying %s", messages)
+
+        messages = self._context + [query]
 
         try:
             res = self._client.chat.completions.create(
@@ -61,10 +68,11 @@ class OpenAIAssistant(Assistant):
                 temperature=0,
             )
             for choice in res.choices:
-                if choice.finish_reason == "stop":
+                reason = choice.finish_reason
+                if reason == "stop" or reason == "length":
                     answer = choice.message.content
                     return answer
-            raise Exception("No usable choice found in OpenAI response")
+            raise Exception("No usable choice found in OpenAI response: %s", res.choices)
         except Exception as e:
             raise Exception(f"Failed to query OpenAI: {e}") from e
 

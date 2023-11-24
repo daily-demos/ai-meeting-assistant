@@ -6,6 +6,7 @@ import asyncio
 import dataclasses
 import json
 import logging
+import os.path
 import sys
 import threading
 import time
@@ -57,15 +58,16 @@ class Session(EventHandler):
     _room: Room
 
     # Shutdown-related properties
-    _is_destroyed: bool = False
+    _is_destroyed: bool
     _shutdown_timer: threading.Timer | None = None
 
     def __init__(self, config: Config,
-                 room_duration_mins: int = None):
+                 room_duration_mins: int = None, room_url: str = None):
         super().__init__()
+        self._is_destroyed = False
         self._config = config
         self._summary = None
-        self.init(room_duration_mins)
+        self.init(room_duration_mins, room_url)
         self._logger = self.create_logger(self._room.name)
         self._assistant = OpenAIAssistant(
             config.openai_api_key,
@@ -85,9 +87,15 @@ class Session(EventHandler):
     def is_destroyed(self) -> bool:
         return self._is_destroyed
 
-    def init(self, room_duration_mins: int = None) -> str:
+    def init(self, room_duration_mins: int = None,
+             room_url: str = None) -> str:
         """Creates a Daily room and uses it to start a session"""
-        room = self.create_room(room_duration_mins)
+        room = None
+        if room_url:
+            room = self.get_room(room_url)
+        else:
+            room = self.create_room(room_duration_mins)
+
         self._room = room
         task = threading.Thread(target=self.start_session)
         task.start()
@@ -119,12 +127,9 @@ class Session(EventHandler):
     def get_participant_count(self) -> int:
         """Gets the current number of participants in the room
         using Daily's REST API"""
-        api_key = self._config.daily_api_key
-        api_url = self._config.daily_api_url
+        headers = self.get_auth_headers()
 
-        url = f'{api_url}/rooms/{self._room.name}/presence'
-        headers = {'Authorization': f'Bearer {api_key}'}
-
+        url = f'{self._config.daily_api_url}/rooms/{self._room.name}/presence'
         res = requests.get(url, headers=headers)
 
         if not res.ok:
@@ -135,13 +140,37 @@ class Session(EventHandler):
         presence = res.json()
         return presence['total_count']
 
+    def get_room(self, room_url: str) -> Room:
+        """Retrieves a Daily room on the configured domain."""
+        if not room_url:
+            raise Exception("Room URL must be provided to retrieve a room")
+        room_name = os.path.basename(room_url)
+        url = f'{self._config.daily_api_url}/rooms/{room_name}'
+        headers = self.get_auth_headers()
+
+        res = requests.get(url, headers=headers)
+
+        if not res.ok:
+            raise Exception(
+                f'Failed to get room {res.status_code}. Body: {res.json()}'
+            )
+
+        room_data = res.json()
+
+        # We have the URL and name above, but use the values returned
+        # by the API itself since that's the source of truth.
+        url = room_data['url']
+        name = room_data['name']
+
+        # Using gets with exp as default value to avoid KeyError,
+        # since this value  might not be set for a room.
+        exp = room_data.get("config").get("exp")
+        token = self.get_meeting_token(name, exp)
+        return Room(url, token, name)
+
     def create_room(self, room_duration_mins: int = None) -> Room:
         """Creates a Daily room on the configured domain."""
-        api_key = self._config.daily_api_key
-        api_url = self._config.daily_api_url
-
-        url = f'{api_url}/rooms'
-        headers = {'Authorization': f'Bearer {api_key}'}
+        headers = self.get_auth_headers()
 
         duration = room_duration_mins
         # Fall back on configured default if needed
@@ -149,6 +178,8 @@ class Session(EventHandler):
             duration = self._config.room_duration_mins
 
         exp = time.time() + duration * 60
+
+        url = f'{self._config.daily_api_url}/rooms'
 
         res = requests.post(url,
                             headers=headers,
@@ -175,24 +206,21 @@ class Session(EventHandler):
 
     def get_meeting_token(self, room_name: str, token_expiry: float = None):
         """Retrieves an owner meeting token for the given Daily room."""
-        api_url = self._config.daily_api_url
-        api_key = self._config.daily_api_key
 
         # 1-hour default expiry
         if not token_expiry:
             token_expiry = time.time() + 3600
 
-        url = f'{api_url}/meeting-tokens'
-        headers = {'Authorization': f'Bearer {api_key}'}
+        url = f'{self._config.daily_api_url}/meeting-tokens'
+        headers = self.get_auth_headers()
 
         res = requests.post(url,
                             headers=headers,
                             json={'properties':
-                                  {'room_name': room_name,
-                                   'is_owner': True,
-                                   'exp': token_expiry,
-                                   'permissions':
-                                   {'hasPresence': False}}})
+                                      {'room_name': room_name,
+                                       'is_owner': True,
+                                       'exp': token_expiry,
+                                       }})
 
         if not res.ok:
             raise Exception(
@@ -255,13 +283,14 @@ class Session(EventHandler):
         if error:
             self._logger.error(
                 "Encountered error while leaving meeting: %s", error)
+        self._logger.info("Left meeting %s", self._room.url)
         self._is_destroyed = True
 
     def on_joined_meeting(self, join_data, error):
         """Callback invoked when the bot has joined the Daily room."""
         if error:
             raise Exception("failed to join meeting", error)
-
+        self._logger.info("Bot joined meeting %s", self._room.url)
         # If there is no one in the call, someone must have already left
         # Start shutdown process in that case.
         if self.maybe_start_shutdown():
@@ -272,6 +301,18 @@ class Session(EventHandler):
         self._call_client.start_transcription()
         self._call_client.set_user_name("Daily AI Assistant")
         self.set_session_data(self._room.name, self._id)
+
+    def on_error(self, message):
+        """Callback invoked when an error is received."""
+        self._logger.error("Received meeting error: %s", message)
+
+    def on_transcription_started(self, status):
+        """Callback invoked when transcription is started."""
+        self._logger.info("Transcription started: %s", status)
+
+    def on_transcription_error(self, message):
+        """Callback invoked when a transcription error is received."""
+        self._logger.error("Received transcription error: %s", message)
 
     def on_transcription_message(self, message):
         """Callback invoked when a transcription message is received."""
@@ -323,8 +364,10 @@ class Session(EventHandler):
             "Participant count: %s", count)
 
         # If there is at least one present participant, do nothing.
-        if count > 0:
+        if count > 1:
             return False
+
+        self._logger.info("Starting shutdown timer")
 
         # If there are no present participants left, wait 1 minute and
         # start shutdown.
@@ -334,11 +377,9 @@ class Session(EventHandler):
 
     def set_session_data(self, room_name: str, bot_id: str):
         """Sets the bot session ID in the Daily room's session data."""
-        api_key = self._config.daily_api_key
-        api_url = self._config.daily_api_url
 
-        url = f'{api_url}/rooms/{room_name}/set-session-data'
-        headers = {'Authorization': f'Bearer {api_key}'}
+        url = f'{self._config.daily_api_url}/rooms/{room_name}/set-session-data'
+        headers = self.get_auth_headers()
         session_data = {
             "data": {
                 "bot_session_id": bot_id
@@ -361,6 +402,12 @@ class Session(EventHandler):
             threading.active_count())
 
         self._call_client.leave(self.on_left_meeting)
+
+    def get_auth_headers(self) -> dict[str, str]:
+        """Gets the authorization headers for Daily's REST API"""
+        api_key = self._config.daily_api_key
+        headers = {'Authorization': f'Bearer {api_key}'}
+        return headers
 
     def create_logger(self, name) -> Logger:
         # Create a logger
