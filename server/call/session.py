@@ -148,11 +148,11 @@ class Session(EventHandler):
         url = f'{self._config.daily_api_url}/rooms/{room_name}'
         headers = self.get_auth_headers()
 
-        res = requests.get(url,  headers=headers)
+        res = requests.get(url, headers=headers)
 
         if not res.ok:
             raise Exception(
-                f'Failed to get room {res.status_code}'
+                f'Failed to get room {res.status_code}. Body: {res.json()}'
             )
 
         room_data = res.json()
@@ -217,10 +217,10 @@ class Session(EventHandler):
         res = requests.post(url,
                             headers=headers,
                             json={'properties':
-                                  {'room_name': room_name,
-                                   'is_owner': True,
-                                   'exp': token_expiry,
-                                  }})
+                                      {'room_name': room_name,
+                                       'is_owner': True,
+                                       'exp': token_expiry,
+                                       }})
 
         if not res.ok:
             raise Exception(
@@ -302,19 +302,20 @@ class Session(EventHandler):
         self._call_client.set_user_name("Daily AI Assistant")
         self.set_session_data(self._room.name, self._id)
 
-
     def on_error(self, message):
+        """Callback invoked when an error is received."""
         self._logger.error("Received meeting error: %s", message)
 
     def on_transcription_started(self, status):
+        """Callback invoked when transcription is started."""
         self._logger.info("Transcription started: %s", status)
 
     def on_transcription_error(self, message):
+        """Callback invoked when a transcription error is received."""
         self._logger.error("Received transcription error: %s", message)
 
     def on_transcription_message(self, message):
         """Callback invoked when a transcription message is received."""
-        self._logger.info("got transcription message: %s", message)
         user_name = message["user_name"]
         text = message["text"]
         timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')

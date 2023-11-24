@@ -16,12 +16,16 @@ class OpenAIAssistant(Assistant):
     # For now, just store context in memory.
     _context: list[ChatCompletionMessageParam] = None
     _default_prompt = ChatCompletionSystemMessageParam(
-        content="AI adopts role of meeting recorder to provide short meeting summaries including discussed key "
-                "items, decisions and action items. Based on the meeting transcript only, write a summary that helps "
-                "document all key aspects of the conversation. Structure the answer into digestible chunks. Do not "
-                "assume things that are not in the transcript. Answer without square brackets, tags, or timestamps."
-                "The summary should be no more than 6 sentences long.",
-                role="system")
+        content="""
+         Based on the provided meeting transcript, please create a concise summary. Your summary should include:
+
+            1. Key discussion points.
+            2. Decisions made.
+            3. Action items assigned.
+
+        Keep the summary within six sentences, ensuring it captures the essence of the conversation. Structure it in clear, digestible parts for easy understanding. Rely solely on information from the transcript; do not infer or add information not explicitly mentioned. Exclude any square brackets, tags, or timestamps from the summary.
+        """,
+        role="system")
 
     def __init__(self, api_key: str, model_name: str = None,
                  logger: logging.Logger = None):
