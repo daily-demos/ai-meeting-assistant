@@ -1,0 +1,10 @@
+{
+  "functions": {
+    "pages/api/query.js": {
+      "maxDuration": 60
+    },
+    "pages/api/summary.js": {
+      "maxDuration": 60
+    }
+  }
+}
