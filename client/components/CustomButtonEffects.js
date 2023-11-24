@@ -40,19 +40,4 @@ export const CustomButtonEffects = () => {
       daily.updateCustomTrayButtons(buttons);
     }),
   );
-
-  useDailyEvent(
-    "custom-button-click",
-    useCallback(async (ev) => {
-      const view = await daily.getSidebarView();
-      switch (ev.button_id) {
-        case assistantId:
-          daily.setSidebarView(view === assistantId ? null : assistantId);
-          break;
-        case transcriptId:
-          daily.setSidebarView(view === transcriptId ? null : transcriptId);
-          break;
-      }
-    }),
-  );
 };

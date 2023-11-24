@@ -15,12 +15,15 @@ import {
 import { GlobalStyles } from "./GlobalStyles";
 import { CopyRoomURLButton } from "./CopyRoomURLButton";
 import { useRouter } from "next/router";
+import { AIAssistant } from "./AIAssistant";
+import { Transcript } from "./Transcript";
 
 export default function App() {
   const { query } = useRouter();
   const [url, setUrl] = useState("");
   const [daily, setDaily] = useState(null);
   const [isJoining, setIsJoining] = useState(false);
+  const [aiView, setAiView] = useState(null);
   const wrapperRef = useRef(null);
 
   const joinRoom = useCallback(async (url) => {
@@ -53,6 +56,18 @@ export default function App() {
   useEffect(
     function initAppEffect() {
       if (!url) return;
+
+      const handleCustomButtonClick = (ev) => {
+        switch (ev.button_id) {
+          case assistantId:
+            setAiView((v) => (v === assistantId ? null : assistantId));
+            break;
+          case transcriptId:
+            setAiView((v) => (v === transcriptId ? null : transcriptId));
+            break;
+        }
+      };
+
       const initFrame = async () => {
         if (DailyIframe.getCallInstance()) {
           await DailyIframe.getCallInstance().destroy();
@@ -61,28 +76,6 @@ export default function App() {
           showLeaveButton: true,
           showUserNameChangeUI: true,
           url,
-          customIntegrations: {
-            assistant: {
-              label: "AI Assistant",
-              location: "sidebar",
-              src:
-                location.protocol +
-                "//" +
-                location.host +
-                "/assistant?room_url=" +
-                url,
-            },
-            transcript: {
-              label: "Transcript",
-              location: "sidebar",
-              src:
-                location.protocol +
-                "//" +
-                location.host +
-                "/transcript?room_url=" +
-                url,
-            },
-          },
           customTrayButtons: {
             [assistantId]: getOpenRobotButton(),
             [transcriptId]: getOpenTranscriptButton(),
@@ -92,10 +85,14 @@ export default function App() {
         setDaily(frame);
         await frame.join();
 
+        frame.on("custom-button-click", handleCustomButtonClick);
+
         frame.once("left-meeting", () => {
+          frame.off("custom-button-click", handleCustomButtonClick);
           frame.destroy();
           setDaily(null);
           setUrl("");
+          setAiView(null);
         });
       };
       initFrame();
@@ -108,9 +105,44 @@ export default function App() {
       <div className="App">
         <h1>Daily AI Meeting Assistant Demo</h1>
         {url ? (
-          <div className="actions">
-            <CopyRoomURLButton url={url} />
-          </div>
+          <>
+            <div className="actions">
+              <CopyRoomURLButton url={url} />
+            </div>
+            <div className="container">
+              <div className="call">
+                <div
+                  className="ai-view"
+                  style={{ display: aiView ? "" : "none" }}
+                >
+                  <div
+                    style={{
+                      display: aiView === assistantId ? "" : "none",
+                      height: "100%",
+                    }}
+                  >
+                    <AIAssistant roomUrl={url} />
+                  </div>
+                  <div
+                    style={{
+                      display: aiView === transcriptId ? "" : "none",
+                      height: "100%",
+                    }}
+                  >
+                    <Transcript roomUrl={url} />
+                  </div>
+                </div>
+                <div id="frame" ref={wrapperRef} />
+                <ClosedCaptions
+                  style={{
+                    left: aiView ? `calc(50% + 150px)` : "50%",
+                    maxWidth: aiView ? `calc(100% - 300px)` : "100%",
+                  }}
+                />
+                <CustomButtonEffects />
+              </div>
+            </div>
+          </>
         ) : (
           <>
             <p>
@@ -136,13 +168,6 @@ export default function App() {
             </div>
           </>
         )}
-        <div className="container">
-          <div className="call">
-            <div id="frame" ref={wrapperRef} />
-            <ClosedCaptions />
-            <CustomButtonEffects />
-          </div>
-        </div>
       </div>
       <GlobalStyles />
       <style jsx>{`
@@ -180,14 +205,20 @@ export default function App() {
         }
         .call {
           align-items: center;
+          border: 1px solid var(--border);
           display: flex;
-          flex-direction: column;
+          flex-direction: row;
           flex: 1 1 auto;
-          gap: 8px;
           height: 100%;
           justify-content: center;
           position: relative;
-          width: 60%;
+          width: 100%;
+        }
+        .ai-view {
+          border-right: 1px solid var(--border);
+          height: 100%;
+          text-align: initial;
+          width: 320px;
         }
         #frame {
           align-self: stretch;
