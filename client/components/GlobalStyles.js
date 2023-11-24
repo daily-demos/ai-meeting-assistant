@@ -13,11 +13,23 @@ export const GlobalStyles = () => {
         --text: #121a24;
         --highlight: #1bebb9;
         --highlight50: #d1fbf1;
+        --highlight-text: #121a24;
 
         height: 100%;
         margin: 0;
         padding: 0;
         width: 100%;
+      }
+
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: #121a24;
+          --border: #2b3f56;
+          --text: #fff;
+          --highlight: #1bebb9;
+          --highlight50: #2ba698;
+          --highlight-text: #121a24;
+        }
       }
 
       body {
@@ -51,7 +63,7 @@ export const GlobalStyles = () => {
         background: var(--highlight);
         border: none;
         border-radius: 4px;
-        color: var(--text);
+        color: var(--highlight-text);
         cursor: pointer;
         display: flex;
         gap: 4px;
@@ -77,6 +89,7 @@ export const GlobalStyles = () => {
         padding: 6px 8px;
       }
       input:focus-visible {
+        border-color: var(--highlight);
         outline-width: 2px;
       }
     `}</style>
