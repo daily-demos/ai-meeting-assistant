@@ -374,7 +374,7 @@ class Session(EventHandler):
         self.maybe_start_shutdown()
 
     def on_call_state_updated(self, state: Mapping[str, Any]) -> None:
-        self._logger.info("Call state updated for session %s: %s", self._id, state)
+        self._logger.info("Call state updated for session %s: %s", self._room.url, state)
         if state == "left" and not self._is_destroyed:
             self._logger.info("Call state left, destroying immediately")
             self.on_left_meeting(None)
