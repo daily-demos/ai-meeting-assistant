@@ -55,7 +55,7 @@ class Session(EventHandler):
 
     # Daily-related properties
     _id: str | None
-    _call_client: CallClient
+    _call_client: CallClient | None
     _room: Room
 
     # Shutdown-related properties
@@ -315,6 +315,8 @@ class Session(EventHandler):
             # If starting shutdown, don't bother with the rest
             # of the join-related operations
             return
+
+        time.sleep(5)
         self._call_client.start_transcription()
         self._call_client.set_user_name("Daily AI Assistant")
         self.set_session_data(self._room.name, self._id)
