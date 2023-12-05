@@ -36,6 +36,11 @@ class Operator():
         # Create a new session
         session = Session(self._config, room_duration_mins, room_url)
         self._sessions.append(session)
+
+        print("active threads:", threading.active_count())
+        for thread in threading.enumerate():
+            print(thread.native_id, thread.name)
+
         return session.room_url
 
     def query_assistant(self, room_url: str, custom_query=None) -> str:
@@ -72,4 +77,7 @@ class Operator():
             if session.is_destroyed:
                 print("Removing destroyed session:", session.room_url)
                 self._sessions.remove(session)
+                print("active threads:", threading.active_count())
+                for thread in threading.enumerate():
+                    print(thread.native_id, thread.name)
         return False

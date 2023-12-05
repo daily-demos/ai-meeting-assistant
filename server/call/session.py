@@ -13,6 +13,7 @@ import time
 from asyncio import Future
 from datetime import datetime
 from logging import Logger
+from typing import Mapping, Any
 
 import polling2
 import requests
@@ -53,7 +54,7 @@ class Session(EventHandler):
     _summary: Summary | None
 
     # Daily-related properties
-    _id: str
+    _id: str | None
     _call_client: CallClient
     _room: Room
 
@@ -67,6 +68,7 @@ class Session(EventHandler):
         self._is_destroyed = False
         self._config = config
         self._summary = None
+        self._id = None
         self.init(room_duration_mins, room_url)
         self._logger = self.create_logger(self._room.name)
         self._assistant = OpenAIAssistant(
@@ -291,13 +293,14 @@ class Session(EventHandler):
         if error:
             raise Exception("failed to join meeting", error)
         self._logger.info("Bot joined meeting %s", self._room.url)
+        self._id = join_data["participants"]["local"]["id"]
+
         # If there is no one in the call, someone must have already left
         # Start shutdown process in that case.
         if self.maybe_start_shutdown():
             # If starting shutdown, don't bother with the rest
             # of the join-related operations
             return
-        self._id = join_data["participants"]["local"]["id"]
         self._call_client.start_transcription()
         self._call_client.set_user_name("Daily AI Assistant")
         self.set_session_data(self._room.name, self._id)
@@ -356,6 +359,12 @@ class Session(EventHandler):
                             reason):
         """Callback invoked when a participant leaves the Daily room."""
         self.maybe_start_shutdown()
+
+    def on_call_state_updated(self, state: Mapping[str, Any]) -> None:
+        self._logger.info("Call state updated for session %s: %s", self._id, state)
+        if state == "left":
+            self._logger.info("Call state left, destroying immediately")
+            self.on_left_meeting(None)
 
     def maybe_start_shutdown(self) -> bool:
         """Checks if the session should be shut down, and if so, starts the shutdown process."""
