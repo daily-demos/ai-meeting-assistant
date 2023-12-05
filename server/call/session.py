@@ -285,6 +285,20 @@ class Session(EventHandler):
         if error:
             self._logger.error(
                 "Encountered error while leaving meeting: %s", error)
+
+        # There's a chance of a shutdown timer being ongoing at the time the bot
+        # is kicked or leaves for other reasons. Clean up the shutdown timer if
+        # that is the case.
+        if self._shutdown_timer:
+            self._logger.info("Participant left meeting - cancelling shutdown.")
+            self.cancel_shutdown_timer()
+
+        # Similar to above, if this session has already been destroyed for any other reason,
+        # Don't do this again.
+        if self._is_destroyed:
+            self._logger.info("Session %s already destroyed.", self._room.url)
+            return
+
         self._logger.info("Left meeting %s", self._room.url)
         self._is_destroyed = True
 
@@ -351,8 +365,7 @@ class Session(EventHandler):
         # As soon as someone joins, stop shutdown process if one is in progress
         if self._shutdown_timer:
             self._logger.info("Participant joined - cancelling shutdown.")
-            self._shutdown_timer.cancel()
-            self._shutdown_timer = None
+            self.cancel_shutdown_timer()
 
     def on_participant_left(self,
                             participant,
@@ -362,7 +375,7 @@ class Session(EventHandler):
 
     def on_call_state_updated(self, state: Mapping[str, Any]) -> None:
         self._logger.info("Call state updated for session %s: %s", self._id, state)
-        if state == "left":
+        if state == "left" and not self._is_destroyed:
             self._logger.info("Call state left, destroying immediately")
             self.on_left_meeting(None)
 
@@ -411,6 +424,10 @@ class Session(EventHandler):
             threading.active_count())
 
         self._call_client.leave(self.on_left_meeting)
+
+    def cancel_shutdown_timer(self):
+        self._shutdown_timer.cancel()
+        self._shutdown_timer = None
 
     def get_auth_headers(self) -> dict[str, str]:
         """Gets the authorization headers for Daily's REST API"""
