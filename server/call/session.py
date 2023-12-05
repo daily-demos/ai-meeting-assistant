@@ -316,10 +316,9 @@ class Session(EventHandler):
             # of the join-related operations
             return
 
-        time.sleep(5)
-        self._logger.info("Starting transcription %s", self._room.url)
+        self._logger.info("Starting transcription1 %s", self._room.url)
         self._call_client.start_transcription()
-        self._logger.info("Started transcription %s", self._room.url)
+        self._logger.info("Started transcription1 %s", self._room.url)
         self._call_client.set_user_name("Daily AI Assistant")
         self.set_session_data(self._room.name, self._id)
 
@@ -387,7 +386,7 @@ class Session(EventHandler):
         """Checks if the session should be shut down, and if so, starts the shutdown process."""
         count = self.get_participant_count()
         self._logger.info(
-            "Participant count: %s", count)
+            "Participant count1: %s", count)
 
         # If there is at least one present participant, do nothing.
         if count > 1:
