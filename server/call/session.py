@@ -309,18 +309,15 @@ class Session(EventHandler):
         self._logger.info("Bot joined meeting %s", self._room.url)
         self._id = join_data["participants"]["local"]["id"]
 
-        # If there is no one in the call, someone must have already left
-        # Start shutdown process in that case.
-        if self.maybe_start_shutdown():
-            # If starting shutdown, don't bother with the rest
-            # of the join-related operations
-            return
-
         self._logger.info("Starting transcription1 %s", self._room.url)
         self._call_client.start_transcription()
         self._logger.info("Started transcription1 %s", self._room.url)
         self._call_client.set_user_name("Daily AI Assistant")
         self.set_session_data(self._room.name, self._id)
+
+        # If there is no one in the call, someone must have already left
+        # Start shutdown process in that case.
+        self.maybe_start_shutdown()
 
     def on_error(self, message):
         """Callback invoked when an error is received."""
