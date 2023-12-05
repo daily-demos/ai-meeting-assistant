@@ -423,6 +423,7 @@ class Session(EventHandler):
             f"Session {self._id} shutting down. Active threads: %s",
             threading.active_count())
 
+        self.cancel_shutdown_timer()
         self._call_client.leave(self.on_left_meeting)
 
     def cancel_shutdown_timer(self):
