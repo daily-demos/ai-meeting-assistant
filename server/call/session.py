@@ -309,14 +309,14 @@ class Session(EventHandler):
         self._logger.info("Bot joined meeting %s", self._room.url)
         self._id = join_data["participants"]["local"]["id"]
 
-        self._logger.info("Starting transcription1 %s", self._room.url)
+        self._logger.info("Starting transcription %s", self._room.url)
         self._call_client.start_transcription()
-        self._logger.info("Started transcription1 %s", self._room.url)
         self._call_client.set_user_name("Daily AI Assistant")
         self.set_session_data(self._room.name, self._id)
 
-        # If there is no one in the call, someone must have already left
-        # Start shutdown process in that case.
+        # If there is no other user in the call, someone must have already left
+        # Start shutdown process in that case (the shutdown will be cancelled if
+        # a participant joined event is subsequently received)
         self.maybe_start_shutdown()
 
     def on_error(self, message):
@@ -383,7 +383,7 @@ class Session(EventHandler):
         """Checks if the session should be shut down, and if so, starts the shutdown process."""
         count = self.get_participant_count()
         self._logger.info(
-            "Participant count1: %s", count)
+            "Participant count: %s", count)
 
         # If there is at least one present participant, do nothing.
         if count > 1:
