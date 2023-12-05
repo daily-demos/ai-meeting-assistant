@@ -282,6 +282,7 @@ class Session(EventHandler):
             self._logger.error("Failed to send app message: %s", error)
 
     def on_left_meeting(self, _, error: str = None):
+        """Cancels any ongoing shutdown timer and marks this session as destroyed"""
         if error:
             self._logger.error(
                 "Encountered error while leaving meeting: %s", error)
@@ -374,6 +375,7 @@ class Session(EventHandler):
         self.maybe_start_shutdown()
 
     def on_call_state_updated(self, state: Mapping[str, Any]) -> None:
+        """Invoked when the Daily call state has changed"""
         self._logger.info("Call state updated for session %s: %s", self._room.url, state)
         if state == "left" and not self._is_destroyed:
             self._logger.info("Call state left, destroying immediately")
@@ -427,6 +429,7 @@ class Session(EventHandler):
         self._call_client.leave(self.on_left_meeting)
 
     def cancel_shutdown_timer(self):
+        """Cancels the live shutdown timer"""
         self._shutdown_timer.cancel()
         self._shutdown_timer = None
 
@@ -437,7 +440,7 @@ class Session(EventHandler):
         return headers
 
     def create_logger(self, name) -> Logger:
-        # Create a logger
+        """Creates a logger for this session"""
         logger = logging.getLogger(name)
         logger.setLevel(logging.DEBUG)
 
