@@ -317,7 +317,9 @@ class Session(EventHandler):
             return
 
         time.sleep(5)
+        self._logger.info("Starting transcription %s", self._room.url)
         self._call_client.start_transcription()
+        self._logger.info("Started transcription %s", self._room.url)
         self._call_client.set_user_name("Daily AI Assistant")
         self.set_session_data(self._room.name, self._id)
 
