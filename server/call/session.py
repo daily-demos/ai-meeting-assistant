@@ -314,9 +314,9 @@ class Session(EventHandler):
         self._call_client.set_user_name("Daily AI Assistant")
         self.set_session_data(self._room.name, self._id)
 
-        # If there is no other user in the call, someone must have already left
-        # Start shutdown process in that case (the shutdown will be cancelled if
-        # a participant joined event is subsequently received)
+        # Check whether the bot is actually the only one in the call, in which case
+        # the shutdown timer should start. The shutdown will be cancelled if
+        # daily-python detects someone new joining.
         self.maybe_start_shutdown()
 
     def on_error(self, message):
