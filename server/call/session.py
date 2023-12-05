@@ -385,7 +385,7 @@ class Session(EventHandler):
 
     def maybe_start_shutdown(self) -> bool:
         """Checks if the session should be shut down, and if so, starts the shutdown process."""
-        count = self._call_client.participant_counts()['present']
+        count = self.get_participant_count()
         self._logger.info(
             "Participant count: %s", count)
 
