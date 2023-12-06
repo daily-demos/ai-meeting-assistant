@@ -13,6 +13,7 @@ import time
 from asyncio import Future
 from datetime import datetime
 from logging import Logger
+from typing import Mapping, Any
 
 import polling2
 import requests
@@ -53,8 +54,8 @@ class Session(EventHandler):
     _summary: Summary | None
 
     # Daily-related properties
-    _id: str
-    _call_client: CallClient
+    _id: str | None
+    _call_client: CallClient | None
     _room: Room
 
     # Shutdown-related properties
@@ -67,6 +68,7 @@ class Session(EventHandler):
         self._is_destroyed = False
         self._config = config
         self._summary = None
+        self._id = None
         self.init(room_duration_mins, room_url)
         self._logger = self.create_logger(self._room.name)
         self._assistant = OpenAIAssistant(
@@ -280,9 +282,24 @@ class Session(EventHandler):
             self._logger.error("Failed to send app message: %s", error)
 
     def on_left_meeting(self, _, error: str = None):
+        """Cancels any ongoing shutdown timer and marks this session as destroyed"""
         if error:
             self._logger.error(
                 "Encountered error while leaving meeting: %s", error)
+
+        # There's a chance of a shutdown timer being ongoing at the time the bot
+        # is kicked or leaves for other reasons. Clean up the shutdown timer if
+        # that is the case.
+        if self._shutdown_timer:
+            self._logger.info("Participant left meeting - cancelling shutdown.")
+            self.cancel_shutdown_timer()
+
+        # Similar to above, if this session has already been destroyed for any other reason,
+        # Don't do this again.
+        if self._is_destroyed:
+            self._logger.info("Session %s already destroyed.", self._room.url)
+            return
+
         self._logger.info("Left meeting %s", self._room.url)
         self._is_destroyed = True
 
@@ -291,16 +308,17 @@ class Session(EventHandler):
         if error:
             raise Exception("failed to join meeting", error)
         self._logger.info("Bot joined meeting %s", self._room.url)
-        # If there is no one in the call, someone must have already left
-        # Start shutdown process in that case.
-        if self.maybe_start_shutdown():
-            # If starting shutdown, don't bother with the rest
-            # of the join-related operations
-            return
         self._id = join_data["participants"]["local"]["id"]
+
+        self._logger.info("Starting transcription %s", self._room.url)
         self._call_client.start_transcription()
         self._call_client.set_user_name("Daily AI Assistant")
         self.set_session_data(self._room.name, self._id)
+
+        # Check whether the bot is actually the only one in the call, in which case
+        # the shutdown timer should start. The shutdown will be cancelled if
+        # daily-python detects someone new joining.
+        self.maybe_start_shutdown()
 
     def on_error(self, message):
         """Callback invoked when an error is received."""
@@ -348,8 +366,7 @@ class Session(EventHandler):
         # As soon as someone joins, stop shutdown process if one is in progress
         if self._shutdown_timer:
             self._logger.info("Participant joined - cancelling shutdown.")
-            self._shutdown_timer.cancel()
-            self._shutdown_timer = None
+            self.cancel_shutdown_timer()
 
     def on_participant_left(self,
                             participant,
@@ -357,9 +374,16 @@ class Session(EventHandler):
         """Callback invoked when a participant leaves the Daily room."""
         self.maybe_start_shutdown()
 
+    def on_call_state_updated(self, state: Mapping[str, Any]) -> None:
+        """Invoked when the Daily call state has changed"""
+        self._logger.info("Call state updated for session %s: %s", self._room.url, state)
+        if state == "left" and not self._is_destroyed:
+            self._logger.info("Call state left, destroying immediately")
+            self.on_left_meeting(None)
+
     def maybe_start_shutdown(self) -> bool:
         """Checks if the session should be shut down, and if so, starts the shutdown process."""
-        count = self._call_client.participant_counts()['present']
+        count = self.get_participant_count()
         self._logger.info(
             "Participant count: %s", count)
 
@@ -401,7 +425,13 @@ class Session(EventHandler):
             f"Session {self._id} shutting down. Active threads: %s",
             threading.active_count())
 
+        self.cancel_shutdown_timer()
         self._call_client.leave(self.on_left_meeting)
+
+    def cancel_shutdown_timer(self):
+        """Cancels the live shutdown timer"""
+        self._shutdown_timer.cancel()
+        self._shutdown_timer = None
 
     def get_auth_headers(self) -> dict[str, str]:
         """Gets the authorization headers for Daily's REST API"""
@@ -410,7 +440,7 @@ class Session(EventHandler):
         return headers
 
     def create_logger(self, name) -> Logger:
-        # Create a logger
+        """Creates a logger for this session"""
         logger = logging.getLogger(name)
         logger.setLevel(logging.DEBUG)
 
