@@ -12,7 +12,7 @@ import { useTranscription } from "@daily-co/daily-react";
 const REFRESH_INTERVAL = 30000;
 
 export const Transcript = ({ roomUrl }) => {
-  const [unhandledLines, setUnhandledLines] = useState(0);
+  const unhandledLines = useRef(0);
   const [transcript, setTranscript] = useState("");
 
   const isScrolledDown = useRef(true);
@@ -20,15 +20,15 @@ export const Transcript = ({ roomUrl }) => {
 
   useTranscription({
     onTranscriptionAppData: useCallback(() => {
-      setUnhandledLines((lines) => lines + 1);
+      unhandledLines.current++;
     }, []),
   });
 
   useEffect(() => {
-    const interval = setInterval(async () => {
-      if (unhandledLines === 0) return;
+    const handleUnhandledTranscript = async () => {
+      if (unhandledLines.current === 0) return;
       try {
-        setUnhandledLines(0);
+        unhandledLines.current = 0;
         const response = await fetchTranscript(roomUrl);
         isScrolledDown.current =
           transcriptRef.current.scrollTop >=
@@ -38,11 +38,12 @@ export const Transcript = ({ roomUrl }) => {
       } catch {
         // Failed to fetch transcript
       }
-    }, REFRESH_INTERVAL);
+    };
+    const interval = setInterval(handleUnhandledTranscript, REFRESH_INTERVAL);
     return () => {
       clearInterval(interval);
     };
-  }, [roomUrl, unhandledLines]);
+  }, [roomUrl]);
 
   useEffect(() => {
     if (!isScrolledDown.current) return;
