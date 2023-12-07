@@ -1,5 +1,6 @@
 """Module that defines an OpenAI assistant."""
 import logging
+import threading
 
 from openai import OpenAI
 from openai.types.chat import ChatCompletionMessageParam, ChatCompletionSystemMessageParam, \
@@ -13,6 +14,8 @@ class OpenAIAssistant(Assistant):
     _client: OpenAI = None
     _model_name: str = None
     _logger: logging.Logger = None
+    _lock: threading.Lock
+
     # For now, just store context in memory.
     _context: list[ChatCompletionMessageParam] = None
     _default_prompt = ChatCompletionSystemMessageParam(
@@ -32,6 +35,7 @@ class OpenAIAssistant(Assistant):
         if not api_key:
             raise Exception("OpenAI API key not provided, but required.")
 
+        self._lock = threading.Lock()
         self._context = []
         self._logger = logger
         if not model_name:
@@ -45,13 +49,15 @@ class OpenAIAssistant(Assistant):
         """Registers new context (usually a transcription line)."""
         content = self._compile_ctx_content(new_text, metadata)
         user_msg = ChatCompletionUserMessageParam(content=content, role="user")
-        self._context.append(user_msg)
+        with self._lock:
+            self._context.append(user_msg)
 
     def query(self, custom_query: str = None) -> str:
         """Submits a query to OpenAI with the stored context if one is provided.
         If a query is not provided, uses the default."""
-        if len(self._context) == 0:
-            raise NoContextError()
+        with self._lock:
+            if len(self._context) == 0:
+                raise NoContextError()
 
         query = self._default_prompt
 
@@ -59,7 +65,8 @@ class OpenAIAssistant(Assistant):
             query = ChatCompletionSystemMessageParam(
                 content=custom_query, role="system")
 
-        messages = self._context + [query]
+        with self._lock:
+            messages = self._context + [query]
 
         try:
             res = self._client.chat.completions.create(
