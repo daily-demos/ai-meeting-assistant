@@ -31,10 +31,11 @@ class Operator():
         # If an active session for given room URL already exists,
         # don't create a new one
         if room_url:
-            for s in self._sessions:
-                if s.room_url == room_url and not s.is_destroyed:
-                    print("found session:", s.room_url)
-                    return s.room_url
+            with self._lock:
+                for s in self._sessions:
+                    if s.room_url == room_url and not s.is_destroyed:
+                        print("found session:", s.room_url)
+                        return s.room_url
 
         # Create a new session
         session = Session(self._config, room_duration_mins, room_url)
@@ -44,16 +45,18 @@ class Operator():
 
     def query_assistant(self, room_url: str, custom_query=None) -> str:
         """Queries the assistant for the provided room URL."""
-        for s in self._sessions:
-            if s.room_url == room_url and not s.is_destroyed:
-                return s.query_assistant(custom_query=custom_query)
-        raise Exception(
-            f"Requested room URL {room_url} not found in active sessions")
+        with self._lock:
+            for s in self._sessions:
+                if s.room_url == room_url and not s.is_destroyed:
+                    return s.query_assistant(custom_query=custom_query)
+            raise Exception(
+                f"Requested room URL {room_url} not found in active sessions")
 
     def shutdown(self):
         """Shuts down all active sessions"""
-        for idx, session in self._sessions:
-            session.shutdown()
+        with self._lock:
+            for idx, session in self._sessions:
+                session.shutdown()
 
     def cleanup(self):
         """Periodically checks for destroyed sessions and removes them from the session list"""
@@ -66,15 +69,14 @@ class Operator():
     def remove_destroyed_sessions(self) -> bool:
         """Removes destroyed sessions from the session list and deinitializes Daily
         if all sessions are gone and the operator is shutting down."""
+        with self._lock:
+            if self._is_shutting_down and len(self._sessions) == 0:
+                Daily.deinit()
+                return True
 
-        if self._is_shutting_down and len(self._sessions) == 0:
-            Daily.deinit()
-            return True
-
-        # Check each session to see if it's been destroyed.
-        for session in self._sessions:
-            if session.is_destroyed:
-                print("Removing destroyed session:", session.room_url)
-                with self._lock:
+            # Check each session to see if it's been destroyed.
+            for session in self._sessions:
+                if session.is_destroyed:
+                    print("Removing destroyed session:", session.room_url)
                     self._sessions.remove(session)
-        return False
+            return False
