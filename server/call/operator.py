@@ -12,6 +12,7 @@ class Operator():
     _config: Config
     _sessions: list[Session] = []
     _is_shutting_down: bool
+    _lock = threading.Lock()
 
     def __init__(self, config: Config):
         self._config = config
@@ -35,7 +36,8 @@ class Operator():
 
         # Create a new session
         session = Session(self._config, room_duration_mins, room_url)
-        self._sessions.append(session)
+        with self._lock:
+            self._sessions.append(session)
         return session.room_url
 
     def query_assistant(self, room_url: str, custom_query=None) -> str:
@@ -71,5 +73,6 @@ class Operator():
         for session in self._sessions:
             if session.is_destroyed:
                 print("Removing destroyed session:", session.room_url)
-                self._sessions.remove(session)
+                with self._lock:
+                    self._sessions.remove(session)
         return False
