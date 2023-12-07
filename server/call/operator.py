@@ -45,12 +45,15 @@ class Operator():
 
     def query_assistant(self, room_url: str, custom_query=None) -> str:
         """Queries the assistant for the provided room URL."""
-        with self._lock:
-            for s in self._sessions:
-                if s.room_url == room_url and not s.is_destroyed:
-                    return s.query_assistant(custom_query=custom_query)
-            raise Exception(
-                f"Requested room URL {room_url} not found in active sessions")
+        self._lock.acquire()
+        for s in self._sessions:
+            if s.room_url == room_url and not s.is_destroyed:
+                self._lock.release()
+                return s.query_assistant(custom_query=custom_query)
+            
+        self._lock.release()
+        raise Exception(
+            f"Requested room URL {room_url} not found in active sessions")
 
     def shutdown(self):
         """Shuts down all active sessions"""
