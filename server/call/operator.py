@@ -10,13 +10,15 @@ from server.call.session import Session
 
 class Operator():
     _config: Config
-    _sessions: list[Session] = []
+    _sessions: list[Session]
     _is_shutting_down: bool
-    _lock = threading.Lock()
+    _lock: threading.Lock
 
     def __init__(self, config: Config):
         self._config = config
         self._is_shutting_down = False
+        self._lock = threading.Lock()
+        self._sessions = []
         Daily.init()
 
         t = threading.Thread(target=self.cleanup)
