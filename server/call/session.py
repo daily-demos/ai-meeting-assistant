@@ -231,7 +231,7 @@ class Session(EventHandler):
         meeting_token = res.json()['token']
         return meeting_token
 
-    def query_assistant(self, recipient_session_id: str = None,
+    async def query_assistant(self, recipient_session_id: str = None,
                         custom_query: str = None) -> [str | Future]:
         """Queries the configured assistant with either the given query, or the
         configured assistant's default"""
@@ -252,7 +252,7 @@ class Session(EventHandler):
         if not answer:
             self._logger.info("Querying assistant")
             try:
-                answer = self._assistant.query(custom_query)
+                answer = await self._assistant.query(custom_query)
                 # If there was no custom query provided, save this as cached
                 # summary.
                 if want_cached_summary:
@@ -339,7 +339,7 @@ class Session(EventHandler):
         metadata = [user_name, 'voice', timestamp]
         self._assistant.register_new_context(text, metadata)
 
-    def on_app_message(self,
+    async def on_app_message(self,
                        message: str,
                        sender: str):
         """Callback invoked when a Daily app message is received."""
@@ -359,7 +359,7 @@ class Session(EventHandler):
         # Should probably be limited only to owners
         if bool(data.get("broadcast")):
             recipient = "*"
-        self.query_assistant(recipient, query)
+        await self.query_assistant(recipient, query)
 
     def on_participant_joined(self, participant):
         # As soon as someone joins, stop shutdown process if one is in progress

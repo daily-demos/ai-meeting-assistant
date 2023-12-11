@@ -1,4 +1,5 @@
 """Module that defines an OpenAI assistant."""
+import asyncio
 import logging
 import threading
 
@@ -52,7 +53,7 @@ class OpenAIAssistant(Assistant):
         with self._lock:
             self._context.append(user_msg)
 
-    def query(self, custom_query: str = None) -> str:
+    async def query(self, custom_query: str = None) -> str:
         """Submits a query to OpenAI with the stored context if one is provided.
         If a query is not provided, uses the default."""
         with self._lock:
@@ -69,24 +70,32 @@ class OpenAIAssistant(Assistant):
             messages = self._context + [query]
 
         try:
-            res = self._client.chat.completions.create(
-                model=self._model_name,
-                messages=messages,
-                temperature=0,
-            )
-            for choice in res.choices:
-                reason = choice.finish_reason
-                if reason == "stop" or reason == "length":
-                    answer = choice.message.content
-                    return answer
-            raise Exception("No usable choice found in OpenAI response: %s", res.choices)
+            loop = asyncio.get_event_loop()
+            future = loop.run_in_executor(None, self._make_openai_request, messages)
+            res = await future
+            return res
         except Exception as e:
             raise Exception(f"Failed to query OpenAI: {e}") from e
 
     def _compile_ctx_content(self, new_text: str,
                              metadata: list[str] = None) -> str:
+        """Compiles context content from the provided text and metadata."""
         content = ""
         if metadata:
             content += f"[{' | '.join(metadata)}] "
         content += new_text
         return content
+
+    def _make_openai_request(self, messages: list[ChatCompletionMessageParam]) -> str:
+        """Makes a chat completion request to OpenAI and returns the response."""
+        res = self._client.chat.completions.create(
+            model=self._model_name,
+            messages=messages,
+            temperature=0,
+        )
+        for choice in res.choices:
+            reason = choice.finish_reason
+            if reason == "stop" or reason == "length":
+                answer = choice.message.content
+                return answer
+        raise Exception("No usable choice found in OpenAI response: %s", res.choices)

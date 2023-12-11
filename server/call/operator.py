@@ -43,13 +43,13 @@ class Operator():
             self._sessions.append(session)
         return session.room_url
 
-    def query_assistant(self, room_url: str, custom_query=None) -> str:
+    async def query_assistant(self, room_url: str, custom_query=None) -> str:
         """Queries the assistant for the provided room URL."""
         self._lock.acquire()
         for s in self._sessions:
             if s.room_url == room_url and not s.is_destroyed:
                 self._lock.release()
-                return s.query_assistant(custom_query=custom_query)
+                return await s.query_assistant(custom_query=custom_query)
             
         self._lock.release()
         raise Exception(

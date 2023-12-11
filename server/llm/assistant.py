@@ -16,5 +16,5 @@ class Assistant(ABC):
         """Registers new context (usually a transcription line)."""
 
     @abstractmethod
-    def query(self, custom_query: str) -> str:
+    async def query(self, custom_query: str) -> str:
         """Runs a query against the assistant and returns the answer."""
