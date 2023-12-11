@@ -50,7 +50,7 @@ class Operator():
             if s.room_url == room_url and not s.is_destroyed:
                 self._lock.release()
                 return await s.query_assistant(custom_query=custom_query)
-            
+
         self._lock.release()
         raise Exception(
             f"Requested room URL {room_url} not found in active sessions")

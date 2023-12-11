@@ -218,10 +218,10 @@ class Session(EventHandler):
         res = requests.post(url,
                             headers=headers,
                             json={'properties':
-                                      {'room_name': room_name,
-                                       'is_owner': True,
-                                       'exp': token_expiry,
-                                       }})
+                                  {'room_name': room_name,
+                                   'is_owner': True,
+                                   'exp': token_expiry,
+                                   }})
 
         if not res.ok:
             raise Exception(
@@ -232,7 +232,7 @@ class Session(EventHandler):
         return meeting_token
 
     async def query_assistant(self, recipient_session_id: str = None,
-                        custom_query: str = None) -> [str | Future]:
+                              custom_query: str = None) -> [str | Future]:
         """Queries the configured assistant with either the given query, or the
         configured assistant's default"""
 
@@ -290,7 +290,8 @@ class Session(EventHandler):
         # is kicked or leaves for other reasons. Clean up the shutdown timer if
         # that is the case.
         if self._shutdown_timer:
-            self._logger.info("Participant left meeting - cancelling shutdown.")
+            self._logger.info(
+                "Participant left meeting - cancelling shutdown.")
             self.cancel_shutdown_timer()
 
         # Similar to above, if this session has already been destroyed for any other reason,
@@ -340,8 +341,8 @@ class Session(EventHandler):
         self._assistant.register_new_context(text, metadata)
 
     async def on_app_message(self,
-                       message: str,
-                       sender: str):
+                             message: str,
+                             sender: str):
         """Callback invoked when a Daily app message is received."""
         # TODO message appears to be a dict when our docs say str.
         # For now dumping it to a JSON string and parsing it back out,
@@ -375,7 +376,10 @@ class Session(EventHandler):
 
     def on_call_state_updated(self, state: Mapping[str, Any]) -> None:
         """Invoked when the Daily call state has changed"""
-        self._logger.info("Call state updated for session %s: %s", self._room.url, state)
+        self._logger.info(
+            "Call state updated for session %s: %s",
+            self._room.url,
+            state)
         if state == "left" and not self._is_destroyed:
             self._logger.info("Call state left, destroying immediately")
             self.on_left_meeting(None)

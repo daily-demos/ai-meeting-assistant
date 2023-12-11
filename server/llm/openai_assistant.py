@@ -71,7 +71,8 @@ class OpenAIAssistant(Assistant):
 
         try:
             loop = asyncio.get_event_loop()
-            future = loop.run_in_executor(None, self._make_openai_request, messages)
+            future = loop.run_in_executor(
+                None, self._make_openai_request, messages)
             res = await future
             return res
         except Exception as e:
@@ -86,7 +87,8 @@ class OpenAIAssistant(Assistant):
         content += new_text
         return content
 
-    def _make_openai_request(self, messages: list[ChatCompletionMessageParam]) -> str:
+    def _make_openai_request(
+            self, messages: list[ChatCompletionMessageParam]) -> str:
         """Makes a chat completion request to OpenAI and returns the response."""
         res = self._client.chat.completions.create(
             model=self._model_name,
@@ -98,4 +100,6 @@ class OpenAIAssistant(Assistant):
             if reason == "stop" or reason == "length":
                 answer = choice.message.content
                 return answer
-        raise Exception("No usable choice found in OpenAI response: %s", res.choices)
+        raise Exception(
+            "No usable choice found in OpenAI response: %s",
+            res.choices)
