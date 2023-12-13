@@ -7,4 +7,4 @@ RUN pip install -r server/requirements.txt
 COPY . /app/server
 EXPOSE 80
 
-CMD quart --app server/main.py --debug run --host=0.0.0.0 --port 80
+CMD quart --app server/main.py run --host=0.0.0.0 --port 80

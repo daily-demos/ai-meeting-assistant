@@ -2,13 +2,17 @@
 import json
 import sys
 import traceback
+from os.path import join, dirname, abspath
 
+from quart.cli import load_dotenv
 from quart_cors import cors
 from quart import Quart, jsonify, Response, request
 
 from server.config import Config
 from server.call.operator import Operator
 
+dotenv_path = join(dirname(dirname(abspath(__file__))), '.env')
+load_dotenv(dotenv_path)
 app = Quart(__name__)
 
 print("Running AI assistant server")
@@ -67,7 +71,7 @@ async def summary():
     if not room_url:
         return process_error('room_url query parameter must be provided', 400)
     try:
-        got_summary = operator.query_assistant(room_url)
+        got_summary = await operator.query_assistant(room_url)
         return jsonify({
             "summary": got_summary
         }), 200
@@ -98,7 +102,7 @@ async def query():
             "Request body must contain a 'room_url' and 'query'", 400)
 
     try:
-        res = operator.query_assistant(room_url, requested_query)
+        res = await operator.query_assistant(room_url, requested_query)
         return jsonify({
             "response": res
         }), 200
