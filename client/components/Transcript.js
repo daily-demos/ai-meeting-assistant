@@ -69,7 +69,7 @@ export const Transcript = ({ roomUrl }) => {
         .transcript {
           max-height: 100%;
           overflow-x: hidden;
-          overflow-y: auto;
+          overflow-y: scroll;
           padding: 8px;
         }
       `}</style>
