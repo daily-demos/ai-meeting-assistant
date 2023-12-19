@@ -4,6 +4,7 @@ import threading
 
 import polling2
 from daily import Daily
+from server.call.errors import SessionNotFoundException
 from server.config import Config
 from server.call.session import Session
 
@@ -52,8 +53,7 @@ class Operator():
                 return await s.query_assistant(custom_query=custom_query)
 
         self._lock.release()
-        raise Exception(
-            f"Requested room URL {room_url} not found in active sessions")
+        raise SessionNotFoundException(room_url)
 
     def shutdown(self):
         """Shuts down all active sessions"""

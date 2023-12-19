@@ -10,11 +10,11 @@ export const fetchSummary = async (roomUrl) => {
     },
   });
 
+  const body = await response.json();
   if (response.ok) {
-    const body = await response.json();
     return body.summary;
   }
-
+  console.error("Failed to fetch summary: ", body);
   throw new Error();
 };
 
@@ -41,11 +41,11 @@ export const fetchTranscript = async (roomUrl) => {
     }),
   });
 
+  const body = await response.json();
   if (response.ok) {
-    const body = await response.json();
     return body.response;
   }
-
+  console.error("Failed to fetch transcript: ", body);
   throw new Error();
 };
 
@@ -61,10 +61,11 @@ export const fetchQuery = async (roomUrl, query) => {
     }),
   });
 
+  const body = await response.json();
   if (response.ok) {
     const body = await response.json();
     return body.response;
   }
-
-  throw new Error();
+  console.error("Failed to fetch query: ", body);
+  throw new Error()
 };
