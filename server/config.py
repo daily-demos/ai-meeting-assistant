@@ -13,6 +13,7 @@ class Config:
     _openai_model_name: str = None
     _room_duration_mins: int = None
     _log_dir_path: str = None
+    _daily_api_keys: dict[str, str] = None
 
     def __init__(self, daily_api_key=os.getenv("DAILY_API_KEY"),
                  daily_api_url=os.getenv("DAILY_API_URL"),
@@ -35,6 +36,24 @@ class Config:
 
         if log_dir_name:
             self._log_dir_path = os.path.abspath(log_dir_name)
+
+    def load_daily_api_keys(self):
+        """Loads all Daily API keys from environment variables"""""
+        self._daily_api_keys = {}
+        items = os.environ.items()
+        for key, value in items:
+            if key.startswith("DAILY_API_KEY_"):
+                domain_name = key.split("DAILY_API_KEY_")[1].lower()
+                self._daily_api_keys[domain_name] = value
+
+    def get_daily_api_key(self, domain_name: str) -> str:
+        """Returns the Daily API key for the given domain name if one exists"""
+        if self._daily_api_keys is None:
+            self.load_daily_api_keys()
+        dn = domain_name.lower()
+        if dn in self._daily_api_keys:
+            return self._daily_api_keys[dn]
+        return ""
 
     @property
     def daily_api_key(self) -> str:
