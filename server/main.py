@@ -7,7 +7,7 @@ from os.path import join, dirname, abspath
 from quart.cli import load_dotenv
 from quart_cors import cors
 from quart import Quart, jsonify, Response, request
-from server.call.errors import SessionNotFoundException
+from server.call.errors import DailyPermissionException, SessionNotFoundException
 
 from server.config import Config
 from server.call.operator import Operator
@@ -43,6 +43,9 @@ async def index():
 async def create_session():
     """Creates a session, which includes creating a Daily room
     and returning its URL to the caller."""
+
+    err_msg = "Failed to create session"
+
     try:
         raw = await request.get_data()
         data = json.loads(raw or 'null')
@@ -61,8 +64,11 @@ async def create_session():
         return jsonify({
             "room_url": room_url
         }), 200
+
+    except DailyPermissionException as e:
+        return process_error(err_msg, 401, e)
     except Exception as e:
-        return process_error('failed to create session', 500, e)
+        return process_error(err_msg, 500, e)
 
 
 @app.route('/summary', methods=['GET'])
