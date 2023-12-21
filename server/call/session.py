@@ -451,7 +451,7 @@ class Session(EventHandler):
                 raise Exception(
                     f"Failed to parse room URL {room_url}") from e
             subdomain = parsed_url.hostname.split('.')[0]
-            domain_api_data = self._config.get_daily_api_key(subdomain)
+            domain_api_data = self._config.get_daily_api_data(subdomain)
             if domain_api_data:
                 api_key = domain_api_data.key
                 api_url = domain_api_data.get_api_url()

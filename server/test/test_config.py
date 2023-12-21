@@ -15,7 +15,7 @@ class ConfigDomainEnvTest(unittest.TestCase):
     def test_parse_default_env(self):
         c = Config()
         want_data = None
-        got_data = c.get_daily_api_key("some-domain-name")
+        got_data = c.get_daily_api_data("some-domain-name")
         self.assertEqual(got_data, want_data)
 
     @mock.patch.dict(os.environ,
@@ -25,7 +25,7 @@ class ConfigDomainEnvTest(unittest.TestCase):
     def test_parse_custom_domain(self):
         c = Config()
         want_data = DailyAPIData("mydomain", None, "abc123")
-        got_data = c.get_daily_api_key("mydomain")
+        got_data = c.get_daily_api_data("mydomain")
         self.assertDictEqual(got_data.__dict__, want_data.__dict__)
 
     @mock.patch.dict(os.environ,
@@ -36,7 +36,7 @@ class ConfigDomainEnvTest(unittest.TestCase):
     def test_parse_custom_domain_and_env(self):
         c = Config()
         want_data = DailyAPIData("mydomain", "staging", "abc123")
-        got_data = c.get_daily_api_key("mydomain")
+        got_data = c.get_daily_api_data("mydomain")
         self.assertDictEqual(got_data.__dict__, want_data.__dict__)
 
         got_api_endpoint = got_data.get_api_url()
@@ -44,7 +44,7 @@ class ConfigDomainEnvTest(unittest.TestCase):
         self.assertEqual(got_api_endpoint, want_api_endpoint)
 
         want_data = DailyAPIData("mydomain2", None, "def456")
-        got_data = c.get_daily_api_key("mydomain2")
+        got_data = c.get_daily_api_data("mydomain2")
         self.assertDictEqual(got_data.__dict__, want_data.__dict__)
 
         got_api_endpoint = got_data.get_api_url()

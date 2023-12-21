@@ -80,8 +80,8 @@ class Config:
                 api_key = DailyAPIData(domain_name, env_name, value)
                 self._daily_api_keys[domain_name] = api_key
 
-    def get_daily_api_key(self, domain_name: str) -> DailyAPIData | None:
-        """Returns the Daily API key for the given domain name if one exists"""
+    def get_daily_api_data(self, domain_name: str) -> DailyAPIData | None:
+        """Returns the Daily API data for the given domain name if it exists"""
         if self._daily_api_keys is None:
             self.load_daily_api_keys()
         dn = domain_name.lower()
