@@ -443,7 +443,6 @@ class Session(EventHandler):
     def set_daily_auth_headers(self, room_url: str):
         """Sets the Daily auth headers for this session, using either the default
         API key or a domain-specific one if provided."""
-        api_key = self._config.daily_api_key
         if room_url:
             try:
                 parsed_url = urlparse(room_url)
@@ -452,9 +451,9 @@ class Session(EventHandler):
                     f"Failed to parse room URL {room_url}") from e
             subdomain = parsed_url.hostname.split('.')[0]
             api_key = self._config.get_daily_api_key(subdomain)
-            if not api_key:
-                raise Exception(
-                    "No API key configured for domain of the given room")
+        
+        if not api_key:
+            api_key = self._config.daily_api_key
 
         headers = {'Authorization': f'Bearer {api_key}'}
         self._daily_auth_headers = headers
