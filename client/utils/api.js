@@ -63,7 +63,6 @@ export const fetchQuery = async (roomUrl, query) => {
 
   const body = await response.json();
   if (response.ok) {
-    const body = await response.json();
     return body.response;
   }
   console.error("Failed to fetch query: ", body);

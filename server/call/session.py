@@ -13,10 +13,12 @@ from asyncio import Future
 from datetime import datetime
 from logging import Logger
 from typing import Mapping, Any
+from urllib.parse import urlparse
 
 import polling2
 import requests
 from daily import EventHandler, CallClient
+from server.call.errors import DailyPermissionException, handle_daily_error_res
 
 from server.config import Config
 from server.llm.openai_assistant import OpenAIAssistant
@@ -61,6 +63,8 @@ class Session(EventHandler):
     _is_destroyed: bool
     _shutdown_timer: threading.Timer | None = None
 
+    _daily_auth_headers: dict[str, str] = None
+
     def __init__(self, config: Config,
                  room_duration_mins: int = None, room_url: str = None):
         super().__init__()
@@ -68,6 +72,7 @@ class Session(EventHandler):
         self._config = config
         self._summary = None
         self._id = None
+        self.set_daily_auth_headers(room_url)
         self.init(room_duration_mins, room_url)
         self._logger = self.create_logger(self._room.name)
         self._assistant = OpenAIAssistant(
@@ -128,15 +133,13 @@ class Session(EventHandler):
     def get_participant_count(self) -> int:
         """Gets the current number of participants in the room
         using Daily's REST API"""
-        headers = self.get_auth_headers()
+        headers = self._daily_auth_headers
 
         url = f'{self._config.daily_api_url}/rooms/{self._room.name}/presence'
         res = requests.get(url, headers=headers)
 
         if not res.ok:
-            raise Exception(
-                f'Failed to get room presence {res.status_code}'
-            )
+            handle_daily_error_res(res, "Failed to get participant count")
 
         presence = res.json()
         return presence['total_count']
@@ -147,14 +150,12 @@ class Session(EventHandler):
             raise Exception("Room URL must be provided to retrieve a room")
         room_name = os.path.basename(room_url)
         url = f'{self._config.daily_api_url}/rooms/{room_name}'
-        headers = self.get_auth_headers()
+        headers = self._daily_auth_headers
 
         res = requests.get(url, headers=headers)
 
         if not res.ok:
-            raise Exception(
-                f'Failed to get room {res.status_code}. Body: {res.json()}'
-            )
+            handle_daily_error_res(res, "Failed to get room")
 
         room_data = res.json()
 
@@ -171,7 +172,7 @@ class Session(EventHandler):
 
     def create_room(self, room_duration_mins: int = None) -> Room:
         """Creates a Daily room on the configured domain."""
-        headers = self.get_auth_headers()
+        headers = self._daily_auth_headers
 
         duration = room_duration_mins
         # Fall back on configured default if needed
@@ -195,9 +196,7 @@ class Session(EventHandler):
                             })
 
         if not res.ok:
-            raise Exception(
-                f'Failed to create room {res.status_code}'
-            )
+            handle_daily_error_res(res, "Failed to create room")
 
         room_data = res.json()
         url = room_data['url']
@@ -213,7 +212,7 @@ class Session(EventHandler):
             token_expiry = time.time() + 3600
 
         url = f'{self._config.daily_api_url}/meeting-tokens'
-        headers = self.get_auth_headers()
+        headers = self._daily_auth_headers
 
         res = requests.post(url,
                             headers=headers,
@@ -224,9 +223,7 @@ class Session(EventHandler):
                                    }})
 
         if not res.ok:
-            raise Exception(
-                f'Failed to create meeting token {res.status_code}'
-            )
+            handle_daily_error_res(res, "Failed to get meeting token")
 
         meeting_token = res.json()['token']
         return meeting_token
@@ -406,7 +403,7 @@ class Session(EventHandler):
         """Sets the bot session ID in the Daily room's session data."""
 
         url = f'{self._config.daily_api_url}/rooms/{room_name}/set-session-data'
-        headers = self.get_auth_headers()
+        headers = self._daily_auth_headers
         session_data = {
             "data": {
                 "bot_session_id": bot_id
@@ -417,9 +414,8 @@ class Session(EventHandler):
 
         res = requests.post(url, headers=headers, data=body)
         if not res.ok:
-            raise Exception(
-                f'Failed to set bot ID in session data. Response code: {res.status_code}, body: {res.json()}'
-            )
+            handle_daily_error_res(
+                res, "Failed to set bot ID in session data")
 
     def shutdown(self):
         """Shuts down the session, leaving the Daily room, invoking the shutdown callback,
@@ -436,11 +432,28 @@ class Session(EventHandler):
         self._shutdown_timer.cancel()
         self._shutdown_timer = None
 
-    def get_auth_headers(self) -> dict[str, str]:
-        """Gets the authorization headers for Daily's REST API"""
+    def set_daily_auth_headers(self, room_url: str):
+        """Sets the Daily auth headers for this session, using either the default
+        API key or a domain-specific one if provided."""
+
+        # Default to primary API key
         api_key = self._config.daily_api_key
+
+        # If a room URL is provided, try to parse the subdomain
+        # and use a domain-specific API key
+        if room_url:
+            try:
+                parsed_url = urlparse(room_url)
+            except Exception as e:
+                raise Exception(
+                    f"Failed to parse room URL {room_url}") from e
+            subdomain = parsed_url.hostname.split('.')[0]
+            domain_api_key = self._config.get_daily_api_key(subdomain)
+            if domain_api_key:
+                api_key = domain_api_key
+
         headers = {'Authorization': f'Bearer {api_key}'}
-        return headers
+        self._daily_auth_headers = headers
 
     def create_logger(self, name) -> Logger:
         """Creates a logger for this session"""
