@@ -51,9 +51,7 @@ class Config:
         if self._daily_api_keys is None:
             self.load_daily_api_keys()
         dn = domain_name.lower()
-        if dn in self._daily_api_keys:
-            return self._daily_api_keys[dn]
-        return ""
+        return self._daily_api_keys.get(dn)
 
     @property
     def daily_api_key(self) -> str:
