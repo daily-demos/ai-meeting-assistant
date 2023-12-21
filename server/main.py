@@ -7,6 +7,7 @@ from os.path import join, dirname, abspath
 from quart.cli import load_dotenv
 from quart_cors import cors
 from quart import Quart, jsonify, Response, request
+from server.call.errors import SessionNotFoundException
 
 from server.config import Config
 from server.call.operator import Operator
@@ -75,6 +76,9 @@ async def summary():
         return jsonify({
             "summary": got_summary
         }), 200
+    except SessionNotFoundException as e:
+        return process_error(
+            'Requested session not found. Has it been destroyed?', 400, e)
     except Exception as e:
         return process_error('failed to generate meeting summary', 500, e)
 
@@ -106,6 +110,9 @@ async def query():
         return jsonify({
             "response": res
         }), 200
+    except SessionNotFoundException as e:
+        return process_error(
+            'Requested session not found. Has it been destroyed?', 400, e)
     except Exception as e:
         return process_error('Failed to query session', 500, e)
 
