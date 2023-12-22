@@ -58,7 +58,7 @@ class Operator():
     def shutdown(self):
         """Shuts down all active sessions"""
         with self._lock:
-            for idx, session in self._sessions:
+            for session in self._sessions:
                 session.shutdown()
 
     def cleanup(self):
