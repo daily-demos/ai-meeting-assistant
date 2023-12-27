@@ -30,20 +30,15 @@ Do not add any new content or dialogue that was not present in the original tran
 `;
 
 export const fetchTranscript = async (roomUrl) => {
-  const response = await fetch("/api/query", {
+  const response = await fetch(`/api/transcript?room_url=${roomUrl}`, {
     headers: {
       "Content-type": "application/json",
     },
-    method: "POST",
-    body: JSON.stringify({
-      room_url: roomUrl,
-      query: cleanupTranscriptPrompt,
-    }),
   });
 
   const body = await response.json();
   if (response.ok) {
-    return body.response;
+    return body.transcript;
   }
   console.error("Failed to fetch transcript: ", body);
   throw new Error();

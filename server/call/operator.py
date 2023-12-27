@@ -55,6 +55,16 @@ class Operator():
         self._lock.release()
         raise SessionNotFoundException(room_url)
 
+    def get_clean_transcript(self, room_url: str) -> str:
+        self._lock.acquire()
+        for s in self._sessions:
+            if s.room_url == room_url and not s.is_destroyed:
+                self._lock.release()
+                return s.get_clean_transcript()
+
+        self._lock.release()
+        raise SessionNotFoundException(room_url)
+
     def shutdown(self):
         """Shuts down all active sessions"""
         with self._lock:

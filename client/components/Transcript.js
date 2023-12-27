@@ -34,6 +34,7 @@ export const Transcript = ({ roomUrl }) => {
           transcriptRef.current.scrollTop >=
           transcriptRef.current.scrollHeight -
             transcriptRef.current.clientHeight;
+        console.log("TRANSCRIPT", response)
         setTranscript(response);
       } catch {
         // Failed to fetch transcript

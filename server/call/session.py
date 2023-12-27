@@ -1,6 +1,7 @@
 """Class representing a single meeting happening within a Daily room.
 This is responsible for all Daily operations."""
 from __future__ import annotations
+import asyncio
 
 import dataclasses
 import json
@@ -229,7 +230,23 @@ class Session(EventHandler):
 
         meeting_token = res.json()['token']
         return meeting_token
+    
+    async def generate_clean_transcript(self) -> bool:
+        """Generates a clean transcript from the raw context."""
+        self._logger.info("GENERATE_CLEAN_TRANSCRIPT() Generating clean transcript")
+        if self._is_destroyed:
+            return True
+        try:
+            self._logger.info("GENERATE_CLEAN_TRANSCRIPT() TRYING")
+            await self._assistant.cleanup_transcript()
+        except Exception as e:
+            self._logger.warning(
+                "Failed to generate clean transcript: %s", e)
+        return False
 
+    def get_clean_transcript(self) -> str:
+        return self._assistant.get_clean_transcript()
+    
     async def query_assistant(self, recipient_session_id: str = None,
                               custom_query: str = None) -> [str | Future]:
         """Queries the configured assistant with either the given query, or the
@@ -262,22 +279,7 @@ class Session(EventHandler):
                 answer = ("Sorry! I don't have any context saved yet. Please try speaking to add some context and "
                           "confirm that transcription is enabled.")
 
-        # If no recipient is provided, this was probably an HTTP request through the operator
-        # Just return the answer string in that case.
-        if not recipient_session_id:
-            return answer
-
-        # If a recipient is provided, this was likely a request through Daily's app message events.
-        # Send the answer as an event as well.
-        self._call_client.send_app_message({
-            "kind": "assist",
-            "data": answer
-        }, participant=recipient_session_id, completion=self.on_app_message_sent)
-
-    def on_app_message_sent(self, _, error: str = None):
-        """Callback invoked when an app message is sent."""
-        if error:
-            self._logger.error("Failed to send app message: %s", error)
+        return answer
 
     def on_left_meeting(self, _, error: str = None):
         """Cancels any ongoing shutdown timer and marks this session as destroyed"""
@@ -323,9 +325,33 @@ class Session(EventHandler):
         """Callback invoked when an error is received."""
         self._logger.error("Received meeting error: %s", message)
 
+
+    async def poll_async_func(self, async_func, interval):
+        done = False
+        while not done:
+            result = await async_func()
+            if self._is_destroyed:
+                done = True
+            else:
+                await asyncio.sleep(interval)
+
+
+    def start_transcript_polling(self):
+        """Starts an asyncio event loop and schedules generate_clean_transcript to run every 30 seconds."""
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        loop.run_until_complete(self.poll_async_func(self.generate_clean_transcript, 30))
+
+    async def poll_async_func(self, async_func, interval):
+        """Runs an async function at regular intervals until the session is destroyed."""
+        while not self._is_destroyed:
+            await async_func()
+            await asyncio.sleep(interval)
+
     def on_transcription_started(self, status):
         """Callback invoked when transcription is started."""
         self._logger.info("Transcription started: %s", status)
+        threading.Thread(target=self.start_transcript_polling, daemon=True).start()
 
     def on_transcription_error(self, message):
         """Callback invoked when a transcription error is received."""
@@ -338,28 +364,6 @@ class Session(EventHandler):
         timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')
         metadata = [user_name, 'voice', timestamp]
         self._assistant.register_new_context(text, metadata)
-
-    async def on_app_message(self,
-                             message: str,
-                             sender: str):
-        """Callback invoked when a Daily app message is received."""
-        # TODO message appears to be a dict when our docs say str.
-        # For now dumping it to a JSON string and parsing it back out,
-        # until designed behavior is clarified.
-        jsonMsg = json.dumps(message)
-        data = json.loads(jsonMsg)
-        kind = data.get("kind")
-        if kind != "assist":
-            return
-
-        query = data.get("query")
-        recipient = sender
-
-        # If this is a broadcast, set recipient to all participants
-        # Should probably be limited only to owners
-        if bool(data.get("broadcast")):
-            recipient = "*"
-        await self.query_assistant(recipient, query)
 
     def on_participant_joined(self, participant):
         # As soon as someone joins, stop shutdown process if one is in progress
