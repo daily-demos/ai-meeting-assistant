@@ -233,11 +233,9 @@ class Session(EventHandler):
     
     async def generate_clean_transcript(self) -> bool:
         """Generates a clean transcript from the raw context."""
-        self._logger.info("GENERATE_CLEAN_TRANSCRIPT() Generating clean transcript")
         if self._is_destroyed:
             return True
         try:
-            self._logger.info("GENERATE_CLEAN_TRANSCRIPT() TRYING")
             await self._assistant.cleanup_transcript()
         except Exception as e:
             self._logger.warning(

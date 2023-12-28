@@ -10,18 +10,12 @@ from openai.types.chat import ChatCompletionMessageParam, ChatCompletionSystemMe
     ChatCompletionUserMessageParam
 
 from server.llm.assistant import Assistant, NoContextError
-
-class StrContext:
-    ctx: str = None
-    lock: threading.Lock = None
-
-    def __init__(self):
-        self.ctx = ""
-        self.lock = threading.Lock()
         
 class OpenAIAssistant(Assistant):
     """Class that implements assistant features using the OpenAI API"""
     _client: OpenAI = None
+
+    # TODO: create one assistant to reuse across sessions
     _oai_assistant_id: int = None
     _oai_summary_thread_id: int = None
     _model_name: str = None
@@ -29,7 +23,7 @@ class OpenAIAssistant(Assistant):
 
     # For now, just store context in memory.
     _raw_context: deque([ChatCompletionMessageParam]) = None
-    _clean_transcript: StrContext = None
+    _clean_transcript: str = None
     _clean_transcript_running: bool = False
     _summary_context: str = None
 
@@ -67,7 +61,7 @@ class OpenAIAssistant(Assistant):
 
         self._raw_context = deque()
         self._summary_context = ""
-        self._clean_transcript = StrContext()
+        self._clean_transcript = ""
         self._logger = logger
         if not model_name:
             model_name = "gpt-3.5-turbo"
@@ -80,8 +74,12 @@ class OpenAIAssistant(Assistant):
         model=model_name).id
 
     def destroy(self):
-        self._client.beta.threads.delete(self._oai_summary_thread_id)
-        self._client.beta.assistants.delete(self._oai_assistant_id)
+        """Destroys the assistant and relevant resources"""
+        bc = self._client.beta
+        bc.threads.delete(self._oai_summary_thread_id)
+
+        # TODO: when assistant becomes persitant, remove this
+        bc.assistants.delete(self._oai_assistant_id)
 
     def register_new_context(self, new_text: str, metadata: list[str] = None):
         """Registers new context (usually a transcription line)."""
@@ -90,29 +88,37 @@ class OpenAIAssistant(Assistant):
         self._raw_context.append(user_msg)
 
     def get_clean_transcript(self) -> str:
-        return self._clean_transcript.ctx
+        """Returns latest clean transcript."""
+        return self._clean_transcript
 
     async def cleanup_transcript(self) -> str:
+        """Cleans up transcript from raw context."""
         if self._clean_transcript_running:
             raise Exception("Clean transcript process already running")
         
+        # Set this bool to ensure only one cleanup process
+        # is running at a time.
         self._clean_transcript_running = True
 
         if len(self._raw_context) == 0:
             self._clean_transcript_running = False
             raise NoContextError()
         
-        
+        # How many transcript lines to process
         to_fetch = self._transcript_batch_size
+
         to_process = []
         ctx = self._raw_context
+
+        # Fetch the next batch of transcript lines
         while to_fetch > 0 and ctx:
             next_line = ctx.popleft()
             to_process.append(next_line)
+            # If we're at the end of the batch size but did not
+            # get what appears to be a full sentence, just keep going.
+            if to_fetch == 1 and "." not in next_line.content:
+                continue
             to_fetch -= 1
-            if to_fetch == 0 and "." not in next_line:
-                to_fetch += 1
-                print("SEARCHING FOR END OF SENTENCE")
 
 
         messages = to_process + [self._default_transcript_prompt]
@@ -121,23 +127,27 @@ class OpenAIAssistant(Assistant):
             future = loop.run_in_executor(
                 None, self._make_openai_request, messages)
             res = await future
-            ct = self._clean_transcript
-            ct.ctx += res
+            self._clean_transcript = res
 
+            # Create a new OpenAI summary thread if it does not yet exist.
             if not self._oai_summary_thread_id:
-                print("CREATING OAI SUMMARY THREAD")
-                thread = self._client.beta.threads.create()
-                self._oai_summary_thread_id = thread.id
-            print("CREATING OAI MESSAGE")
+                self._create_summary_thread()
+
+            # Append new message with this batch of cleaned-up transcript to thread
             self._client.beta.threads.messages.create(self._oai_summary_thread_id, content=res, role="user")
             self._clean_transcript_running = False
         except Exception as e:
-            print("CLEAN_TRANSCRIPT() failed:", e, sep="\n")
-            # Re-insert failed items into the queue
+            # Re-insert failed items into the queue, 
+            # to make sure they do not get lost on next attempt.
             for item in reversed(to_process):
                 self._raw_context.appendleft(item)
             self._clean_transcript_running = False
             raise Exception(f"Failed to query OpenAI: {e}") from e
+
+    def _create_summary_thread(self):
+        """Creates a new OpenAI thread to store the summary context in"""
+        thread = self._client.beta.threads.create()
+        self._oai_summary_thread_id = thread.id
 
     async def query(self, custom_query: str = None) -> str:
         """Submits a query to OpenAI with the stored context if one is provided.
@@ -183,20 +193,20 @@ class OpenAIAssistant(Assistant):
 
     def _make_openai_thread_request(
             self, thread_id: list) -> str:
-        """Makes a chat completion request to OpenAI and returns the response."""
+        """Creates a thread run and returns the response."""
     
-        run = self._client.beta.threads.runs.create(
+        threads = self._client.beta.threads
+        run = threads.create(
                 assistant_id=self._oai_assistant_id,
                 thread_id=thread_id,
             )
-        while run.status !="completed":
-            run = self._client.beta.threads.runs.retrieve(
+        while run.status != "completed":
+            run = threads.runs.retrieve(
                 thread_id=thread_id,
                 run_id=run.id
             )
 
-        
-        messages = self._client.beta.threads.messages.list(
+        messages = threads.messages.list(
             thread_id=thread_id,
         )
 
