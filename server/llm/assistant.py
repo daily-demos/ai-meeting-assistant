@@ -22,9 +22,13 @@ class Assistant(ABC):
         """Runs a query against the assistant and returns the answer."""
 
     @abstractmethod
-    async def get_clean_transcript(self) -> str:
-        """Runs a query against the assistant and returns the answer."""
+    def get_clean_transcript(self) -> str:
+        """Returns latest clean transcript."""
 
     @abstractmethod
     async def cleanup_transcript(self) -> str:
-        """Runs a query against the assistant and returns the answer."""
+        """Cleans up transcript from raw context."""
+
+    @abstractmethod
+    def destroy(self) -> str:
+        """Destroys the assistant."""

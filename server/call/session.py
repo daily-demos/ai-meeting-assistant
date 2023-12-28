@@ -302,6 +302,7 @@ class Session(EventHandler):
             return
 
         self._logger.info("Left meeting %s", self._room.url)
+        self._assistant.destroy()
         self._is_destroyed = True
 
     def on_joined_meeting(self, join_data, error):
