@@ -76,10 +76,11 @@ class OpenAIAssistant(Assistant):
     def destroy(self):
         """Destroys the assistant and relevant resources"""
         bc = self._client.beta
-        bc.threads.delete(self._oai_summary_thread_id)
+        if self._oai_summary_thread_id:
+            bc.threads.delete(self._oai_summary_thread_id)
 
-        # TODO: when assistant becomes persitant, remove this
-        bc.assistants.delete(self._oai_assistant_id)
+        if self._oai_assistant_id:
+            bc.assistants.delete(self._oai_assistant_id)
 
     def register_new_context(self, new_text: str, metadata: list[str] = None):
         """Registers new context (usually a transcription line)."""

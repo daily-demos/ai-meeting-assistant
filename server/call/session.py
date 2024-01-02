@@ -2,6 +2,7 @@
 This is responsible for all Daily operations."""
 from __future__ import annotations
 import asyncio
+import atexit
 
 import dataclasses
 import json
@@ -18,10 +19,10 @@ from urllib.parse import urlparse
 
 import polling2
 import requests
-from daily import EventHandler, CallClient
-from server.call.errors import DailyPermissionException, handle_daily_error_res
+from daily import Daily, EventHandler, CallClient
+from server.call.errors import HeadlessNotPermittedException, handle_daily_error_res
 
-from server.config import Config
+from server.config import Config, HeadlessConfig, get_headless_config
 from server.llm.openai_assistant import OpenAIAssistant
 from server.llm.assistant import Assistant, NoContextError
 
@@ -35,13 +36,6 @@ class Room:
 
 
 @dataclasses.dataclass
-class Participant:
-    """Class representing a Daily participant"""
-    session_id: str = None
-    user_name: str = None
-
-
-@dataclasses.dataclass
 class Summary:
     """Class representing a Daily meeting summary"""
     content: str
@@ -51,7 +45,8 @@ class Summary:
 class Session(EventHandler):
     """Class representing a single meeting happening within a Daily room."""
 
-    _config: Config
+    _is_headless = False
+    _config: Config | HeadlessConfig
     _assistant: Assistant
     _summary: Summary | None
 
@@ -68,14 +63,19 @@ class Session(EventHandler):
     _daily_auth_headers: dict[str, str] = None
     _daily_api_url: str = None
 
-    def __init__(self, config: Config,
+    def __init__(self, config: Config | HeadlessConfig,
                  room_duration_mins: int = None, room_url: str = None):
         super().__init__()
         self._is_destroyed = False
+
+        headless = isinstance(config, HeadlessConfig)
+
+        self._is_headless = headless
         self._config = config
         self._summary = None
         self._id = None
-        self.set_daily_request_data(room_url)
+        if not headless:
+            self.set_daily_request_data(room_url)
         self.init(room_duration_mins, room_url)
         self._logger = self.create_logger(self._room.name)
         self._assistant = OpenAIAssistant(
@@ -99,8 +99,18 @@ class Session(EventHandler):
     def init(self, room_duration_mins: int = None,
              room_url: str = None) -> str:
         """Creates a Daily room and uses it to start a session"""
+
         room = None
-        if room_url:
+
+        if self._is_headless:
+            parsed_url = urlparse(room_url)
+            room_name = os.path.basename(parsed_url.path)
+            print("ROOM NAME:", room_name)
+            token = self._config.daily_meeting_token
+            room = Room(url=room_url, name=room_name, token=token)
+            self._room = room
+            return room.url
+        elif room_url:
             room = self.get_room(room_url)
         else:
             room = self.create_room(room_duration_mins)
@@ -113,21 +123,24 @@ class Session(EventHandler):
     def start_session(self):
         """Waits for at least one person to join the associated Daily room,
         then joins, starts transcription, and begins registering context."""
-        try:
-            polling2.poll(
-                target=self.get_participant_count,
-                check_success=lambda count: count > 0,
-                step=3,
-                timeout=300)
-        except polling2.TimeoutException:
-            self._logger.error("Timed out waiting for participants to join")
-            self._is_destroyed = True
-            return
-        self._logger.info(
-            "Session detected at least one participant - joining")
+    
+        if not self._is_headless:
+            try:
+                polling2.poll(
+                    target=self.get_participant_count,
+                    check_success=lambda count: count > 0,
+                    step=3,
+                    timeout=300)
+            except polling2.TimeoutException:
+                self._logger.error("Timed out waiting for participants to join")
+                self._is_destroyed = True
+                return
+            self._logger.info(
+                "Session detected at least one participant - joining")
         call_client = CallClient(event_handler=self)
         self._call_client = call_client
         room = self._room
+        self._logger.info("Joining Daily room %s", room.url)
         call_client.join(
             room.url,
             room.token,
@@ -136,6 +149,9 @@ class Session(EventHandler):
     def get_participant_count(self) -> int:
         """Gets the current number of participants in the room
         using Daily's REST API"""
+
+        if self._is_headless:
+            raise HeadlessNotPermittedException("get participant count through Daily's REST API")
         headers = self._daily_auth_headers
 
         url = f'{self._daily_api_url}/rooms/{self._room.name}/presence'
@@ -148,7 +164,10 @@ class Session(EventHandler):
         return presence['total_count']
 
     def get_room(self, room_url: str) -> Room:
-        """Retrieves a Daily room on the configured domain."""
+        """Retrieves a Daily room on the configured domain."""        
+        if self._is_headless:
+            raise HeadlessNotPermittedException("retrieve a Daily room")
+    
         if not room_url:
             raise Exception("Room URL must be provided to retrieve a room")
         room_name = os.path.basename(room_url)
@@ -175,6 +194,9 @@ class Session(EventHandler):
 
     def create_room(self, room_duration_mins: int = None) -> Room:
         """Creates a Daily room on the configured domain."""
+
+        if self._is_headless:
+            raise HeadlessNotPermittedException("create a Daily room")
         headers = self._daily_auth_headers
 
         duration = room_duration_mins
@@ -210,6 +232,9 @@ class Session(EventHandler):
     def get_meeting_token(self, room_name: str, token_expiry: float = None):
         """Retrieves an owner meeting token for the given Daily room."""
 
+        if self._is_headless:
+            raise HeadlessNotPermittedException("get a Daily meeting token")
+        
         # 1-hour default expiry
         if not token_expiry:
             token_expiry = time.time() + 3600
@@ -245,8 +270,7 @@ class Session(EventHandler):
     def get_clean_transcript(self) -> str:
         return self._assistant.get_clean_transcript()
     
-    async def query_assistant(self, recipient_session_id: str = None,
-                              custom_query: str = None) -> [str | Future]:
+    async def query_assistant(self, custom_query: str = None) -> Future[str]:
         """Queries the configured assistant with either the given query, or the
         configured assistant's default"""
 
@@ -276,8 +300,47 @@ class Session(EventHandler):
             except NoContextError:
                 answer = ("Sorry! I don't have any context saved yet. Please try speaking to add some context and "
                           "confirm that transcription is enabled.")
-
+                
         return answer
+
+    def on_app_message_sent(self, _, error: str = None):
+        """Callback invoked when an app message is sent."""
+        if error:
+            self._logger.error("Failed to send app message: %s", error)
+
+    async def on_app_message(self,
+                              message: str,
+                              sender: str):
+        """Callback invoked when a Daily app message is received."""
+        # TODO message appears to be a dict when our docs say str.
+        # For now dumping it to a JSON string and parsing it back out,
+        # until designed behavior is clarified.
+        jsonMsg = json.dumps(message)
+        data = json.loads(jsonMsg)
+        kind = data.get("kind")
+        if kind != "assist":
+            return
+
+        query = data.get("query")
+
+        recipient = sender
+
+        # If this is a broadcast, set recipient to all participants
+        if bool(data.get("broadcast")):
+            recipient = "*"
+
+        task = data.get("task")
+
+        answer: str = None
+        if task == "summary" or task == "query":
+            answer = await self.query_assistant(query)
+        elif task == "transcript":
+            answer = self.get_clean_transcript()
+            
+        await self._call_client.send_app_message({
+                "kind": f"ai-{task}",
+                "data": answer
+            }, participant=recipient, completion=self.on_app_message_sent)
 
     def on_left_meeting(self, _, error: str = None):
         """Cancels any ongoing shutdown timer and marks this session as destroyed"""
@@ -310,10 +373,13 @@ class Session(EventHandler):
         self._logger.info("Bot joined meeting %s", self._room.url)
         self._id = join_data["participants"]["local"]["id"]
 
-        self._logger.info("Starting transcription %s", self._room.url)
-        self._call_client.start_transcription()
+        if not self._is_headless:
+            self._logger.info("Starting transcription %s", self._room.url)
+            self._call_client.start_transcription()
         self._call_client.set_user_name("Daily AI Assistant")
-        self.set_session_data(self._room.name, self._id)
+
+        if not self._is_headless:
+            self.set_session_data(self._room.name, self._id)
 
         # Check whether the bot is actually the only one in the call, in which case
         # the shutdown timer should start. The shutdown will be cancelled if
@@ -407,6 +473,10 @@ class Session(EventHandler):
     def set_session_data(self, room_name: str, bot_id: str):
         """Sets the bot session ID in the Daily room's session data."""
 
+        if self._is_headless:
+            raise HeadlessNotPermittedException("set session data")
+        
+        self._logger.info("Setting bot ID in session data: %s (%s)", room_name, bot_id)
         url = f'{self._daily_api_url}/rooms/{room_name}/set-session-data'
         headers = self._daily_auth_headers
         session_data = {
@@ -434,8 +504,9 @@ class Session(EventHandler):
 
     def cancel_shutdown_timer(self):
         """Cancels the live shutdown timer"""
-        self._shutdown_timer.cancel()
-        self._shutdown_timer = None
+        if self._shutdown_timer:
+            self._shutdown_timer.cancel()
+            self._shutdown_timer = None
 
     def set_daily_request_data(self, room_url: str):
         """Sets the Daily auth headers for this session, using either the default
@@ -483,3 +554,28 @@ class Session(EventHandler):
             logger.addHandler(stream_handler)
 
         return logger
+
+
+def bot_cleanup(session: Session):
+    session.shutdown()    
+    while not session.is_destroyed:
+        print("Waiting for bot to leave the call")
+        time.sleep(1)
+
+    Daily.deinit()
+
+
+def main():
+    config = get_headless_config()
+
+    Daily.init()
+
+    session = Session(config, None, config.daily_room_url)
+    atexit.register(bot_cleanup, session)
+    task = threading.Thread(target=session.start_session)
+    task.start()
+    while not session.is_destroyed:
+        time.sleep(1)
+
+if __name__ == "__main__":
+    main()
