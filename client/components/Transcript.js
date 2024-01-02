@@ -5,18 +5,35 @@ import React, {
   useRef,
   useState,
 } from "react";
-import { fetchTranscript } from "../utils/api";
 import { GlobalStyles } from "./GlobalStyles";
 import { useTranscription } from "@daily-co/daily-react";
+import {
+  useDaily,
+  useDailyEvent,
+} from "@daily-co/daily-react";
 
 const REFRESH_INTERVAL = 30000;
 
 export const Transcript = ({ roomUrl }) => {
+  const daily = useDaily();
   const unhandledLines = useRef(0);
   const [transcript, setTranscript] = useState("");
 
   const isScrolledDown = useRef(true);
   const transcriptRef = useRef(null);
+
+  useDailyEvent(
+    "app-message",
+    useCallback((ev) => {
+      const data = ev?.data;
+      if (data?.kind !== "ai-transcript") return;
+      isScrolledDown.current =
+      transcriptRef.current.scrollTop >=
+      transcriptRef.current.scrollHeight -
+        transcriptRef.current.clientHeight;
+      setTranscript(data.data);
+    }, []),
+  );
 
   useTranscription({
     onTranscriptionAppData: useCallback(() => {
@@ -29,13 +46,10 @@ export const Transcript = ({ roomUrl }) => {
       if (unhandledLines.current === 0) return;
       try {
         unhandledLines.current = 0;
-        const response = await fetchTranscript(roomUrl);
-        isScrolledDown.current =
-          transcriptRef.current.scrollTop >=
-          transcriptRef.current.scrollHeight -
-            transcriptRef.current.clientHeight;
-        console.log("TRANSCRIPT", response)
-        setTranscript(response);
+        daily.sendAppMessage({
+          "kind": "assist",
+          "task": "transcript",
+        }, "*");
       } catch {
         // Failed to fetch transcript
       }
@@ -44,7 +58,7 @@ export const Transcript = ({ roomUrl }) => {
     return () => {
       clearInterval(interval);
     };
-  }, [roomUrl]);
+  }, [daily]);
 
   useEffect(() => {
     if (!isScrolledDown.current) return;

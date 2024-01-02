@@ -28,15 +28,19 @@ export default function App() {
 
   const joinRoom = useCallback(async (url) => {
     setIsJoining(true);
-    const response = await fetch("/api/create-session", {
-      method: "POST",
-      body: JSON.stringify({
-        room_url: url,
-      }),
-    });
-    const body = await response.json();
-    if (body.url) {
-      setUrl(body.url);
+    if (!url) {
+      const response = await fetch("/api/create-session", {
+        method: "POST",
+        body: JSON.stringify({
+          room_url: url,
+        }),
+      });
+      const body = await response.json();
+      if (body.url) {
+        setUrl(body.url);
+      }
+    } else {
+      setUrl(url);
     }
     setIsJoining(false);
   }, []);
@@ -72,10 +76,20 @@ export default function App() {
         if (DailyIframe.getCallInstance()) {
           await DailyIframe.getCallInstance().destroy();
         }
+
+        const roomName = new URL(url).pathname.split("/").pop();
+        const response = await fetch(`/api/get-token?roomName=${roomName}`);
+        const body = await response.json();
+        if (!response.ok) {
+          console.error("Failed to get meeting token", body);
+          return;
+        }
+        const meetingToken = body.meetingToken;
         const frame = DailyIframe.createFrame(wrapperRef.current, {
           showLeaveButton: true,
           showUserNameChangeUI: true,
           url,
+          token: meetingToken,
           customTrayButtons: {
             [assistantId]: getOpenRobotButton(),
             [transcriptId]: getOpenTranscriptButton(),
@@ -83,7 +97,6 @@ export default function App() {
           },
         });
         setDaily(frame);
-        await frame.join();
 
         frame.on("custom-button-click", handleCustomButtonClick);
 
@@ -94,6 +107,13 @@ export default function App() {
           setUrl("");
           setAiView(null);
         });
+
+        frame.once("joined-meeting", () => {
+          console.log("starting transcription")
+          frame.startTranscription();
+        });
+
+        await frame.join();
       };
       initFrame();
     },

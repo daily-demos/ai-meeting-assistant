@@ -1,12 +1,16 @@
 import classNames from "classnames";
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState, useCallback } from "react";
 import ReactTimeago from "react-timeago";
-import { fetchQuery, fetchSummary } from "../utils/api";
+import { fetchQuery } from "../utils/api";
 import { GlobalStyles } from "./GlobalStyles";
 import { DeleteIcon } from "./icons/DeleteIcon";
 import { VolumeOnIcon } from "./icons/VolumeOnIcon";
 import { VolumeOffIcon } from "./icons/VolumeOffIcon";
 import { SummaryIcon } from "./icons/SummaryIcon";
+import {
+  useDaily,
+  useDailyEvent,
+} from "@daily-co/daily-react";
 
 const responseErrorText =
   "Uh oh! While I tried to get a response for you, an error occurred! Please try again.";
@@ -26,6 +30,7 @@ const createAssistantMessage = (message) => ({
 });
 
 export const AIAssistant = ({ roomUrl }) => {
+  const daily = useDaily();
   const [summary, setSummary] = useState(null);
   const [chatHistory, setChatHistory] = useState([]);
 
@@ -38,6 +43,23 @@ export const AIAssistant = ({ roomUrl }) => {
 
   const audioMsgRef = useRef(null);
   const audioErrorRef = useRef(null);
+
+  useDailyEvent(
+    "app-message",
+    useCallback((ev) => {
+      const data = ev?.data;
+      if (data?.kind === "ai-summary") {
+        setSummary(data.data);
+        setIsSummarizing(false);
+        return;
+      }
+      if (data?.kind === "ai-query") {
+        setChatHistory((prev) => [...prev, createAssistantMessage(data.data)]);
+        setIsPrompting(false);
+        return;
+      }
+    }, []),
+  );
 
   const playAudioMsg = () => {
     if (!audioMsgRef.current || !playSounds) return;
@@ -59,8 +81,11 @@ export const AIAssistant = ({ roomUrl }) => {
     setChatHistory((prev) => [...prev, createUserMessage(query)]);
     try {
       setIsPrompting(true);
-      const response = await fetchQuery(roomUrl, query);
-      setChatHistory((prev) => [...prev, createAssistantMessage(response)]);
+      daily.sendAppMessage({
+        "kind": "assist",
+        "task": "query",
+        "query": query,
+      }, "*")
       playAudioMsg();
     } catch {
       setChatHistory((prev) => [
@@ -68,23 +93,21 @@ export const AIAssistant = ({ roomUrl }) => {
         createAssistantMessage(responseErrorText),
       ]);
       playAudioError();
-    } finally {
-      setIsPrompting(false);
-    }
+    } 
   };
 
   const handleSummaryClick = async () => {
     try {
       setIsSummarizing(true);
-      const response = await fetchSummary(roomUrl);
-      setSummary(response);
+      daily.sendAppMessage({
+        "kind": "assist",
+        "task": "summary",
+      }, "*")
       playAudioMsg();
     } catch {
       setSummary(summaryErrorText);
       playAudioError();
-    } finally {
-      setIsSummarizing(false);
-    }
+    } 
   };
 
   useEffect(() => {

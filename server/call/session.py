@@ -308,7 +308,7 @@ class Session(EventHandler):
         if error:
             self._logger.error("Failed to send app message: %s", error)
 
-    async def on_app_message(self,
+    def on_app_message(self,
                               message: str,
                               sender: str):
         """Callback invoked when a Daily app message is received."""
@@ -333,14 +333,15 @@ class Session(EventHandler):
 
         answer: str = None
         if task == "summary" or task == "query":
-            answer = await self.query_assistant(query)
+            answer = asyncio.run(self.query_assistant(query))
         elif task == "transcript":
             answer = self.get_clean_transcript()
             
-        await self._call_client.send_app_message({
+        self._call_client.send_app_message({
                 "kind": f"ai-{task}",
                 "data": answer
             }, participant=recipient, completion=self.on_app_message_sent)
+
 
     def on_left_meeting(self, _, error: str = None):
         """Cancels any ongoing shutdown timer and marks this session as destroyed"""
@@ -372,14 +373,17 @@ class Session(EventHandler):
             raise Exception("failed to join meeting", error)
         self._logger.info("Bot joined meeting %s", self._room.url)
         self._id = join_data["participants"]["local"]["id"]
+        
+        # TODO (Liza): Remove this when transcription started events are invoked
+        # as expected
+        threading.Thread(target=self.start_transcript_polling, daemon=True).start()
 
         if not self._is_headless:
             self._logger.info("Starting transcription %s", self._room.url)
             self._call_client.start_transcription()
-        self._call_client.set_user_name("Daily AI Assistant")
-
-        if not self._is_headless:
             self.set_session_data(self._room.name, self._id)
+        
+        self._call_client.set_user_name("Daily AI Assistant")
 
         # Check whether the bot is actually the only one in the call, in which case
         # the shutdown timer should start. The shutdown will be cancelled if
@@ -400,7 +404,6 @@ class Session(EventHandler):
             else:
                 await asyncio.sleep(interval)
 
-
     def start_transcript_polling(self):
         """Starts an asyncio event loop and schedules generate_clean_transcript to run every 30 seconds."""
         loop = asyncio.new_event_loop()
@@ -413,10 +416,14 @@ class Session(EventHandler):
             await async_func()
             await asyncio.sleep(interval)
 
-    def on_transcription_started(self, status):
-        """Callback invoked when transcription is started."""
-        self._logger.info("Transcription started: %s", status)
-        threading.Thread(target=self.start_transcript_polling, daemon=True).start()
+    # TODO: (Liza) Uncomment this when transcription events are properly invoked
+    # if the transcription is starte before the bot joins. 
+    #def on_transcription_started(self, status):
+    #    self._logger.info("Transcription started: %s", status)
+    #    threading.Thread(target=self.start_transcript_polling, daemon=True).start()
+
+    def on_transcription_stopped(self, stopped_by: str, stopped_by_error: str):
+        self._logger.info("Transcription stopped: %s (%s)", stopped_by, stopped_by_error)
 
     def on_transcription_error(self, message):
         """Callback invoked when a transcription error is received."""
