@@ -77,25 +77,31 @@ export default function App() {
           await DailyIframe.getCallInstance().destroy();
         }
 
-        const roomName = new URL(url).pathname.split("/").pop();
-        const response = await fetch(`/api/get-token?roomName=${roomName}`);
-        const body = await response.json();
-        if (!response.ok) {
-          console.error("Failed to get meeting token", body);
-          return;
-        }
-        const meetingToken = body.meetingToken;
-        const frame = DailyIframe.createFrame(wrapperRef.current, {
+        const opts = {
           showLeaveButton: true,
           showUserNameChangeUI: true,
           url,
-          token: meetingToken,
           customTrayButtons: {
             [assistantId]: getOpenRobotButton(),
             [transcriptId]: getOpenTranscriptButton(),
             [disableCCId]: getDisableCCButton(),
           },
-        });
+        }
+        
+        const roomName = new URL(url).pathname.split("/").pop();
+        const response = await fetch(`/api/get-token?roomName=${roomName}`);
+        let meetingToken;
+        if (!response.ok) {
+          console.warn("Failed to get meeting token");
+        } else {
+          const body = await response.json();
+          meetingToken = body.meetingToken;
+        }
+        
+        if (meetingToken) {
+          opts.token = meetingToken;
+        }
+        const frame = DailyIframe.createFrame(wrapperRef.current, opts);
         setDaily(frame);
 
         frame.on("custom-button-click", handleCustomButtonClick);

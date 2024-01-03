@@ -1,6 +1,7 @@
+import { API_HOST } from "../../utils/api";
+
 export default async function handler(req, res) {
 
-  const apiKey = process.env.DAILY_API_KEY;
 
   if (!apiKey) { 
     res.status(500).json({
@@ -20,7 +21,7 @@ export default async function handler(req, res) {
   // 5-minute default expiry
   const tokenExpiry = Math.floor(Date.now() / 1000) + 300;
 
-  const url = `https://api.daily.co/v1/meeting-tokens`;
+  const url = `${API_HOST}/meeting-tokens`;
 
   const response = await fetch(url, {
       method: 'POST',

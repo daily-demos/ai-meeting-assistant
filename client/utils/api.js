@@ -1,4 +1,4 @@
-export const API_HOST = process.env.API_HOST ?? "http://127.0.0.1:5000";
+export const API_HOST = process.env.DAILY_API_URL ?? "https://api.daily.co/v1";
 
 const buildPrompt = (question) =>
   `AI adopts role of a positive, helpful, and concise meeting assistant. The meeting transcript is provided as structured user messages. Given the transcript, answer the following question: \`${question}\`. Answer without square brackets, tags, or timestamps.`;
