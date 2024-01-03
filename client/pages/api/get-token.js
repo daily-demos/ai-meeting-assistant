@@ -2,7 +2,7 @@ import { API_HOST } from "../../utils/api";
 
 export default async function handler(req, res) {
 
-
+  const apiKey = process.env.DAILY_API_KEY;
   if (!apiKey) { 
     res.status(500).json({
       error: "Missing Daily API Key",
@@ -17,6 +17,7 @@ export default async function handler(req, res) {
     });
     return;
   }
+
 
   // 5-minute default expiry
   const tokenExpiry = Math.floor(Date.now() / 1000) + 300;
