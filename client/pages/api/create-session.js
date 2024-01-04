@@ -34,9 +34,8 @@ export default async function handler(req, res) {
       openai_api_key: openai_api_key,
     }),
   });
-  const body = await response.json();
-
   if (!response.ok) {
+    const body = await response.text();
     res.status(500).json({
       error: "Error when creating session",
       details: body,
@@ -72,16 +71,23 @@ async function getMeetingToken(roomURL, dailyKey, isOwner) {
     const err = await response.text();
     throw new Error(`Failed to get meeting token: ${err}`);
   }
-  const data = await response.json();
- 
-  const meetingToken = data['token'];
+  const data = await response.json(); 
+  console.log("data:", data)
+  const meetingToken = data.token;
+  console.log("token:", meetingToken)
   return meetingToken;
  }
  
 
 function getDailyAPIURL(roomURL) {
   const url = new URL(roomURL);
-  return `https://${url.host}/api/v1`;
+  const host = url.host;
+  const hostParts = host.split('.');
+
+  if (hostParts.length > 2) {
+    return `https://${hostParts[1]}.daily.co/api/v1`;
+  }
+  return "https://api.daily.co/v1"
 } 
 
 function getRoomName(roomURL) {
