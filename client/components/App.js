@@ -21,26 +21,35 @@ import { Transcript } from "./Transcript";
 export default function App() {
   const { query } = useRouter();
   const [url, setUrl] = useState("");
+  const [meetingToken, setMeetingToken] = useState("");
   const [daily, setDaily] = useState(null);
   const [isJoining, setIsJoining] = useState(false);
   const [aiView, setAiView] = useState(null);
   const wrapperRef = useRef(null);
 
-  const joinRoom = useCallback(async (url) => {
+  const joinRoom = useCallback(async (url, dailyKey, oaiKey, wantBotToken) => {
     setIsJoining(true);
-    if (!url) {
+    if (url && dailyKey && oaiKey) {
       const response = await fetch("/api/create-session", {
         method: "POST",
         body: JSON.stringify({
           room_url: url,
+          daily_api_key: dailyKey,
+          want_bot_token: wantBotToken,
+          openai_api_key: oaiKey,
         }),
       });
       const body = await response.json();
-      if (body.url) {
-        setUrl(body.url);
+      if (response.ok) {
+        setMeetingToken(body.token);
+        setUrl(url);
+      } else {
+        console.error("failed to create session:", body);
       }
-    } else {
+    } else if (url) {
       setUrl(url);
+    } else  {
+      console.error("URL must be provided") 
     }
     setIsJoining(false);
   }, []);
@@ -53,8 +62,11 @@ export default function App() {
 
   const handleSubmit = async (ev) => {
     ev.preventDefault();
-    const roomUrl = ev.target.elements?.url?.value;
-    joinRoom(roomUrl);
+    const eles = ev.target.elements
+    const roomUrl = eles.url?.value;
+    const dailyKey = eles.dailyKey?.value;
+    const oaiKey = eles.oaiKey?.value;
+    joinRoom(roomUrl, dailyKey, oaiKey);
   };
 
   useEffect(
@@ -87,17 +99,7 @@ export default function App() {
             [disableCCId]: getDisableCCButton(),
           },
         }
-        
-        const roomName = new URL(url).pathname.split("/").pop();
-        const response = await fetch(`/api/get-token?roomName=${roomName}`);
-        let meetingToken;
-        if (!response.ok) {
-          console.warn("Failed to get meeting token");
-        } else {
-          const body = await response.json();
-          meetingToken = body.meetingToken;
-        }
-        
+            
         if (meetingToken) {
           opts.token = meetingToken;
         }
@@ -180,13 +182,33 @@ export default function App() {
               other information, based on the spoken words.
             </p>
             <div>
-              <form onSubmit={handleSubmit}>
+              <form onSubmit={handleSubmit} style={{ flexDirection: 'column' }}>
                 <input
                   readOnly={isJoining}
                   type="url"
                   name="url"
                   placeholder="Room URL (optional)"
+                />     
+              <input
+                  readOnly={isJoining}
+                  type="password"
+                  name="dailyKey"
+                  placeholder="Daily API key"
+                /> 
+                <input
+                  readOnly={isJoining}
+                  type="password"
+                  name="oaiKey"
+                  placeholder="OpenAI API key"
                 />
+                <span>
+                  <label htmlFor="wantBotToken">Give bot a meeting token</label>
+                  <input
+                    readOnly={isJoining}
+                    type="checkbox"
+                    name="wantBotToken"
+                  />       
+                </span>
                 <button disabled={isJoining} type="submit">
                   Join
                 </button>

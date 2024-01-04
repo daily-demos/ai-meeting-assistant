@@ -4,19 +4,16 @@ import threading
 
 import polling2
 from daily import Daily
-from server.call.errors import SessionNotFoundException
-from server.config import Config
+from server.config import BotConfig
 from server.call.session import Session
 
 
 class Operator():
-    _config: Config
     _sessions: list[Session]
     _is_shutting_down: bool
     _lock: threading.Lock
 
-    def __init__(self, config: Config):
-        self._config = config
+    def __init__(self):
         self._is_shutting_down = False
         self._lock = threading.Lock()
         self._sessions = []
@@ -25,45 +22,23 @@ class Operator():
         t = threading.Thread(target=self.cleanup)
         t.start()
 
-    def create_session(self, room_duration_mins: int = None,
-                       room_url: str = None) -> str:
+    def create_session(self, bot_config: BotConfig) -> Session:
         """Creates a session, which includes creating a Daily room."""
 
         # If an active session for given room URL already exists,
         # don't create a new one
-        if room_url:
-            with self._lock:
-                for s in self._sessions:
-                    if s.room_url == room_url and not s.is_destroyed:
-                        print("found session:", s.room_url)
-                        return s.room_url
+        with self._lock:
+            for s in self._sessions:
+                if s.room_url == bot_config.daily_room_url and not s.is_destroyed:
+                    print("found session:", s.room_url)
+                    return None
 
         # Create a new session
-        session = Session(self._config, room_duration_mins, room_url)
+        print("operator creating", bot_config)
+        session = Session(bot_config)
         with self._lock:
             self._sessions.append(session)
-        return session.room_url
-
-    async def query_assistant(self, room_url: str, custom_query=None) -> str:
-        """Queries the assistant for the provided room URL."""
-        self._lock.acquire()
-        for s in self._sessions:
-            if s.room_url == room_url and not s.is_destroyed:
-                self._lock.release()
-                return await s.query_assistant(custom_query=custom_query)
-
-        self._lock.release()
-        raise SessionNotFoundException(room_url)
-
-    def get_clean_transcript(self, room_url: str) -> str:
-        self._lock.acquire()
-        for s in self._sessions:
-            if s.room_url == room_url and not s.is_destroyed:
-                self._lock.release()
-                return s.get_clean_transcript()
-
-        self._lock.release()
-        raise SessionNotFoundException(room_url)
+        return session
 
     def shutdown(self):
         """Shuts down all active sessions"""

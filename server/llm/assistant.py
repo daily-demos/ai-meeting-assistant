@@ -4,6 +4,7 @@ from abc import ABC, abstractmethod
 
 class NoContextError(Exception):
     """Raised when a query is made but no context is available"""
+
     def __init__(self):
         m = "No context available."
         super().__init__(m)

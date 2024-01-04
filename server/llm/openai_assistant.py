@@ -12,7 +12,8 @@ from openai.types.chat import ChatCompletionMessageParam, ChatCompletionSystemMe
 from server.llm.assistant import Assistant, NoContextError
 
 _assistant_name = "daily-ai-assistant"
-        
+
+
 class OpenAIAssistant(Assistant):
     """Class that implements assistant features using the OpenAI API"""
     _client: OpenAI = None
@@ -32,7 +33,6 @@ class OpenAIAssistant(Assistant):
     # Process 20 context items at a time.
     _transcript_batch_size: int = 25
 
-
     _default_transcript_prompt = ChatCompletionSystemMessageParam(content="""
         Using the exact transcript provided in the previous messages, convert it into a cleaned-up, paragraphed format. It is crucial that you strictly adhere to the content of the provided transcript without adding or modifying any of the original dialogue. Your tasks are to:
 
@@ -43,11 +43,12 @@ class OpenAIAssistant(Assistant):
 
         Do not add any new content or dialogue that was not present in the original transcript. The focus is on cleaning and reformatting the existing content for clarity and readability.
         """,
-        role="system")
-    
+                                                                  role="system")
+
     _default_prompt = """
          Primary Instruction:
-         Based on the provided meeting transcripts, please create a concise summary. Your summary should include:
+         Based on the provided meeting transcripts, please create a concise summary. 
+         Your summary should include:
 
             1. Key discussion points.
             2. Decisions made.
@@ -66,7 +67,7 @@ class OpenAIAssistant(Assistant):
         self._clean_transcript = ""
         self._logger = logger
         if not model_name:
-            model_name = "gpt-3.5-turbo"
+            model_name = "gpt-4-1106-preview"
         self._model_name = model_name
         self._client = OpenAI(
             api_key=api_key,
@@ -80,12 +81,15 @@ class OpenAIAssistant(Assistant):
             if assistant.name == _assistant_name and assistant.instructions == self._default_prompt:
                 return assistant.id
         return self._client.beta.assistants.create(name=_assistant_name, description="Daily meeting summary assistant",
-        instructions=self._default_prompt,
-        model=model_name).id
+                                                   instructions=self._default_prompt,
+                                                   model=model_name).id
 
     def destroy(self):
         """Destroys the assistant and relevant resources"""
-        self._logger.info("Destroying thread (%s) and assistant (%s)", self._oai_summary_thread_id, self._oai_assistant_id)
+        self._logger.info(
+            "Destroying thread (%s) and assistant (%s)",
+            self._oai_summary_thread_id,
+            self._oai_assistant_id)
         bc = self._client.beta
         if self._oai_summary_thread_id:
             bc.threads.delete(self._oai_summary_thread_id)
@@ -107,7 +111,7 @@ class OpenAIAssistant(Assistant):
         """Cleans up transcript from raw context."""
         if self._clean_transcript_running:
             raise Exception("Clean transcript process already running")
-        
+
         # Set this bool to ensure only one cleanup process
         # is running at a time.
         self._clean_transcript_running = True
@@ -115,17 +119,19 @@ class OpenAIAssistant(Assistant):
         if len(self._raw_context) == 0:
             self._clean_transcript_running = False
             raise NoContextError()
-        
+
         if self._oai_summary_thread_id:
-            active_runs = self._client.beta.threads.runs.list(self._oai_summary_thread_id)
+            active_runs = self._client.beta.threads.runs.list(
+                self._oai_summary_thread_id)
             if len(active_runs.data) > 0:
                 self._clean_transcript_running = False
                 active_statuses = ["in-progress"]
                 for run in active_runs.data:
                     if run.status in active_statuses:
-                        self._logger.info("Active run, won't clean transcript: %s (%s)", run, run.status)
+                        self._logger.info(
+                            "Active run, won't clean transcript: %s (%s)", run, run.status)
                         return
-    
+
         # How many transcript lines to process
         to_fetch = self._transcript_batch_size
 
@@ -142,7 +148,6 @@ class OpenAIAssistant(Assistant):
                 continue
             to_fetch -= 1
 
-
         messages = to_process + [self._default_transcript_prompt]
         try:
             loop = asyncio.get_event_loop()
@@ -155,11 +160,13 @@ class OpenAIAssistant(Assistant):
             if not self._oai_summary_thread_id:
                 self._create_summary_thread()
 
-            # Append new message with this batch of cleaned-up transcript to thread
-            self._client.beta.threads.messages.create(self._oai_summary_thread_id, content=res, role="user")
+            # Append new message with this batch of cleaned-up transcript to
+            # thread
+            self._client.beta.threads.messages.create(
+                self._oai_summary_thread_id, content=res, role="user")
             self._clean_transcript_running = False
         except Exception as e:
-            # Re-insert failed items into the queue, 
+            # Re-insert failed items into the queue,
             # to make sure they do not get lost on next attempt.
             for item in reversed(to_process):
                 self._raw_context.appendleft(item)
@@ -186,7 +193,8 @@ class OpenAIAssistant(Assistant):
             else:
                 future = loop.run_in_executor(
                     None, self._make_openai_request, [
-                        ChatCompletionUserMessageParam(content=self._clean_transcript, role="user"),
+                        ChatCompletionUserMessageParam(
+                            content=self._clean_transcript, role="user"),
                         ChatCompletionSystemMessageParam(content=custom_query, role="system")])
             res = await future
             return res
@@ -223,18 +231,18 @@ class OpenAIAssistant(Assistant):
     def _make_openai_thread_request(
             self, thread_id: list) -> str:
         """Creates a thread run and returns the response."""
-    
+
         threads = self._client.beta.threads
         run = threads.runs.create(
-                assistant_id=self._oai_assistant_id,
-                thread_id=thread_id,
-            )
+            assistant_id=self._oai_assistant_id,
+            thread_id=thread_id,
+        )
         while run.status != "completed":
             run = threads.runs.retrieve(
                 thread_id=thread_id,
                 run_id=run.id
             )
-    
+
         messages = threads.messages.list(
             thread_id=thread_id,
         )
