@@ -1,7 +1,6 @@
 import classNames from "classnames";
 import React, { useEffect, useRef, useState, useCallback } from "react";
 import ReactTimeago from "react-timeago";
-import { fetchQuery } from "../utils/api";
 import { GlobalStyles } from "./GlobalStyles";
 import { DeleteIcon } from "./icons/DeleteIcon";
 import { VolumeOnIcon } from "./icons/VolumeOnIcon";
