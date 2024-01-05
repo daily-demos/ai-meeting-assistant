@@ -82,10 +82,11 @@ function getDailyAPIURL(roomURL) {
   const host = url.host;
   const hostParts = host.split('.');
 
-  if (hostParts.length > 2) {
-    return `https://${hostParts[1]}.daily.co/api/v1`;
+  let subdomain = "";
+  if (hostParts.length > 3) {
+    subdomain = `${hostParts[1]}.`
   }
-  return "https://api.daily.co/v1"
+  return `https://${subdomain}api.daily.co/v1`
 } 
 
 function getRoomName(roomURL) {

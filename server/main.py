@@ -11,6 +11,7 @@ from quart import Quart, jsonify, Response, request
 
 from server.config import BotConfig
 from server.call.operator import Operator
+from server.llm.openai_assistant import probe_api_key
 
 dotenv_path = join(dirname(dirname(abspath(__file__))), '.env')
 load_dotenv(dotenv_path)
@@ -56,6 +57,9 @@ async def create_session():
     openai_api_key = data.get("openai_api_key")
     if not room_url or not openai_api_key:
         return process_error(err_msg, 400)
+    
+    if probe_api_key(openai_api_key) is False:
+        return process_error("Invalid OpenAI API key", 400)
 
     openai_model_name = data.get("openai_model_name")
     meeting_token = data.get("meeting_token")

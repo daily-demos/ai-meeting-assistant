@@ -13,6 +13,18 @@ from server.llm.assistant import Assistant, NoContextError
 
 _assistant_name = "daily-ai-assistant"
 
+def probe_api_key(api_key: str) -> bool:
+    """Probes the OpenAI API with the provided key to ensure it is valid."""
+    try:
+        client = OpenAI(api_key=api_key)
+        client.chat.completions.create(
+            model="gpt-3.5-turbo",
+            messages=[ChatCompletionUserMessageParam(content="This is a test", role="user")],
+        )
+        return True
+    except Exception as e:
+        print(f"Failed to probe OpenAI API key: {e}")
+        return False
 
 class OpenAIAssistant(Assistant):
     """Class that implements assistant features using the OpenAI API"""

@@ -2,6 +2,7 @@ import React, {
   Fragment,
   useCallback,
   useEffect,
+  useLayoutEffect,
   useRef,
   useState,
 } from "react";
@@ -19,7 +20,7 @@ export const Transcript = ({ roomUrl }) => {
   const unhandledLines = useRef(0);
   const [transcript, setTranscript] = useState("");
 
-  const isScrolledDown = useRef(true);
+  const [transcriptHeight, setTranscriptHeight] = useState(0);
   const transcriptRef = useRef(null);
 
   useDailyEvent(
@@ -27,10 +28,6 @@ export const Transcript = ({ roomUrl }) => {
     useCallback((ev) => {
       const data = ev?.data;
       if (data?.kind !== "ai-transcript") return;
-      isScrolledDown.current =
-      transcriptRef.current.scrollTop >=
-      transcriptRef.current.scrollHeight -
-        transcriptRef.current.clientHeight;
       setTranscript(data.data);
     }, []),
   );
@@ -41,18 +38,25 @@ export const Transcript = ({ roomUrl }) => {
     }, []),
   });
 
+  const requestTranscript = () => {
+    unhandledLines.current = 0;
+    daily.sendAppMessage({
+      "kind": "assist",
+      "task": "transcript",
+    }, "*");
+  };
   useEffect(() => {
+    // Wait for a single participant joined event
+    // to request transcript the first time local user joins.
+    // Using this instead of joined-meeting to account for
+    // app-message availability fluctuations between join times.
+    daily?.once("participant-joined", () => {
+      requestTranscript()
+    })
+    
     const handleUnhandledTranscript = async () => {
       if (unhandledLines.current === 0) return;
-      try {
-        unhandledLines.current = 0;
-        daily.sendAppMessage({
-          "kind": "assist",
-          "task": "transcript",
-        }, "*");
-      } catch {
-        // Failed to fetch transcript
-      }
+      requestTranscript();
     };
     const interval = setInterval(handleUnhandledTranscript, REFRESH_INTERVAL);
     return () => {
@@ -60,13 +64,26 @@ export const Transcript = ({ roomUrl }) => {
     };
   }, [daily]);
 
+  useLayoutEffect(() => {
+    const observer = new ResizeObserver(entries => {
+      for (let entry of entries) {
+        setTranscriptHeight(entry.target.scrollHeight);
+      }
+    });
+  
+    if (transcriptRef.current) {
+      observer.observe(transcriptRef.current);
+    }
+  
+    return () => observer.disconnect();
+  }, []);
+
   useEffect(() => {
-    if (!isScrolledDown.current) return;
     transcriptRef.current?.scrollTo({
       top: transcriptRef.current?.scrollHeight,
       behavior: "smooth",
     });
-  }, [transcript]);
+  }, [transcriptHeight]);
 
   return (
     <div className="transcript" ref={transcriptRef}>
