@@ -69,6 +69,7 @@ export default function App() {
     joinRoom(roomUrl, dailyKey, oaiKey);
   };
 
+
   useEffect(
     function initAppEffect() {
       if (!url) return;
@@ -128,6 +129,12 @@ export default function App() {
     [url],
   );
 
+  const setInviteUrl = (roomURL) => {
+    const inviteUrl = new URL(window.location.href);
+    inviteUrl.searchParams.set("url", roomURL);
+    return inviteUrl.toString();
+  }
+
   return (
     <DailyProvider callObject={daily}>
       <div className="App">
@@ -135,7 +142,7 @@ export default function App() {
         {url ? (
           <>
             <div className="actions">
-              <CopyRoomURLButton url={url} />
+              <CopyRoomURLButton url={setInviteUrl(url)} />
             </div>
             <div className="container">
               <div className="call">

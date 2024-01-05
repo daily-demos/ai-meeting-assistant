@@ -72,9 +72,7 @@ async function getMeetingToken(roomURL, dailyKey, isOwner) {
     throw new Error(`Failed to get meeting token: ${err}`);
   }
   const data = await response.json(); 
-  console.log("data:", data)
   const meetingToken = data.token;
-  console.log("token:", meetingToken)
   return meetingToken;
  }
  
