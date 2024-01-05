@@ -10,6 +10,7 @@ import {
   useDaily,
   useDailyEvent,
 } from "@daily-co/daily-react";
+import { CopyContentButton } from "./CopyContentButton";
 
 const responseErrorText =
   "Uh oh! While I tried to get a response for you, an error occurred! Please try again.";
@@ -119,15 +120,18 @@ export const AIAssistant = ({ roomUrl }) => {
   return (
     <div className="ai-assistant">
       <div className="wrapper">
-        <button
-          className="summary-btn"
-          disabled={isSummarizing}
-          type="button"
-          onClick={handleSummaryClick}
-        >
-          <SummaryIcon size={16} />
-          <span>{summary ? "Refresh summary" : "Get summary"}</span>
-        </button>
+        <div style={{display: "flex"}}>
+          <button
+            className="summary-btn"
+            disabled={isSummarizing}
+            type="button"
+            onClick={handleSummaryClick}
+          >
+            <SummaryIcon size={16} />
+            <span>{summary ? "Refresh summary" : "Get summary"}</span>
+          </button>
+          <CopyContentButton content={summary} />
+        </div>
         <div className="summary">
           {!!summary && <div className="message answer">{summary}</div>}
         </div>
@@ -219,6 +223,7 @@ export const AIAssistant = ({ roomUrl }) => {
         .summary-btn {
           align-self: flex-start;
           width: auto;
+          margin: 2px;
         }
         .summary {
           border-bottom: 1px solid var(--border);

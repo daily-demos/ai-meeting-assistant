@@ -13,10 +13,10 @@ import {
   getOpenTranscriptButton,
 } from "../utils/custom-buttons";
 import { GlobalStyles } from "./GlobalStyles";
-import { CopyRoomURLButton } from "./CopyRoomURLButton";
 import { useRouter } from "next/router";
 import { AIAssistant } from "./AIAssistant";
 import { Transcript } from "./Transcript";
+import { CopyContentButton } from "./CopyContentButton";
 
 export default function App() {
   const { query } = useRouter();
@@ -142,7 +142,7 @@ export default function App() {
         {url ? (
           <>
             <div className="actions">
-              <CopyRoomURLButton url={setInviteUrl(url)} />
+              <CopyContentButton content={setInviteUrl(url)} label="Copy room URL" />
             </div>
             <div className="container">
               <div className="call">

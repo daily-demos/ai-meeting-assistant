@@ -3,17 +3,21 @@ import { useState } from "react";
 import { CopyIcon } from "./icons/CopyIcon";
 import { DoneIcon } from "./icons/DoneIcon";
 
-export const CopyRoomURLButton = ({ url }) => {
+export const CopyContentButton = ({ content, label }) => {
   const [copied, setCopied] = useState(false);
-  const handleCopyURL = () => {
-    if (copy(url)) {
+
+  if (!label) {
+    label = "Copy"
+  }
+  const handleCopyContent = () => {
+    if (copy(content)) {
       setCopied(true);
       setTimeout(() => setCopied(false), 3000);
     }
   };
 
   return (
-    <button disabled={copied} onClick={handleCopyURL}>
+    <button disabled={copied} onClick={handleCopyContent} style={{margin: "2px"}}>
       {copied ? (
         <>
           <DoneIcon size={16} />
@@ -22,7 +26,7 @@ export const CopyRoomURLButton = ({ url }) => {
       ) : (
         <>
           <CopyIcon size={16} />
-          <span>Copy room URL</span>
+          <span>{label}</span>
         </>
       )}
     </button>

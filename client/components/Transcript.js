@@ -12,6 +12,9 @@ import {
   useDaily,
   useDailyEvent,
 } from "@daily-co/daily-react";
+import { CopyIcon } from "./icons/CopyIcon";
+import { CopyContentButton } from "./CopyContentButton";
+import { SaveFileButton } from "./SaveContentButton";
 
 const REFRESH_INTERVAL = 30000;
 
@@ -87,7 +90,14 @@ export const Transcript = ({ roomUrl }) => {
 
   return (
     <div className="transcript" ref={transcriptRef}>
-      <h3>Transcript</h3>
+      <h3>Transcript</h3> 
+      <p style={{
+        display: "flex",
+        flexDirection: "row",
+      }}>
+        <CopyContentButton content={transcript} />
+        <SaveFileButton content={transcript} filePrefix="transcript" />
+      </p>
       {transcript
         ? transcript.split("\n").map((line, i) => (
             <Fragment key={`transcript-${i}`}>
