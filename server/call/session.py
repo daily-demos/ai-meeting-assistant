@@ -384,7 +384,7 @@ def main():
 
     Daily.init()
 
-    session = Session(config, None, config.daily_room_url)
+    session = Session(config)
     atexit.register(bot_cleanup, session)
     session.start()
 
