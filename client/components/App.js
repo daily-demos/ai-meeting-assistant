@@ -117,11 +117,6 @@ export default function App() {
           setAiView(null);
         });
 
-        frame.once("joined-meeting", () => {
-          console.log("starting transcription")
-          frame.startTranscription();
-        });
-
         await frame.join();
       };
       initFrame();

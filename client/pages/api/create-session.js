@@ -50,23 +50,28 @@ async function getMeetingToken(roomURL, dailyKey, isOwner) {
   const tokenExpiry = Math.floor(Date.now() / 1000) + 300;
 
   const url = `${getDailyAPIURL(roomURL)}/meeting-tokens`;
-  console.log("Ulr.", url)
   const roomName = getRoomName(roomURL);
+
+  const tokenProperties = {
+    'properties': {
+        'room_name': roomName,
+        'is_owner': isOwner,
+        'exp': tokenExpiry,
+    }
+  }
+
+  if (isOwner) {
+    tokenProperties.properties['auto_start_transcription'] = true;
+  }
+
   const response = await fetch(url, {
       method: 'POST',
       headers: {
           Authorization: `Bearer ${dailyKey}`,
           'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-          'properties': {
-              'room_name': roomName,
-              'is_owner': isOwner,
-              'exp': tokenExpiry,
-          }
-      })
+      body: JSON.stringify(tokenProperties)
    });
- 
   if (!response.ok) {
     const err = await response.text();
     throw new Error(`Failed to get meeting token: ${err}`);
