@@ -35,7 +35,6 @@ class OpenAIAssistant(Assistant):
     """Class that implements assistant features using the OpenAI API"""
     _client: OpenAI = None
 
-    # TODO: create one assistant to reuse across sessions
     _oai_assistant_id: int = None
     _oai_summary_thread_id: int = None
     _model_name: str = None

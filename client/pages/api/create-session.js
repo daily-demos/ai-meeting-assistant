@@ -80,8 +80,12 @@ async function getMeetingToken(roomURL, dailyKey, isOwner) {
   const meetingToken = data.token;
   return meetingToken;
  }
- 
 
+/**
+ * Returns the URL of the Daily API based on the room URL
+ * @param {string} roomURL 
+ * @returns 
+ */
 function getDailyAPIURL(roomURL) {
   const url = new URL(roomURL);
   const host = url.host;
@@ -94,6 +98,11 @@ function getDailyAPIURL(roomURL) {
   return `https://${subdomain}api.daily.co/v1`
 } 
 
+/**
+ * Returns the room name using the room URL
+ * @param {string} roomURL 
+ * @returns 
+ */
 function getRoomName(roomURL) {
   const url = new URL(roomURL);
   return url.pathname.split("/")[1];

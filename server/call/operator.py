@@ -34,7 +34,6 @@ class Operator():
                     return None
 
         # Create a new session
-        print("operator creating", bot_config)
         session = Session(bot_config)
         with self._lock:
             self._sessions.append(session)

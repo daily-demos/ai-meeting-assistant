@@ -47,7 +47,6 @@ async def create_session():
 
     raw = await request.get_data()
     data = json.loads(raw or 'null')
-    print("Trying to create session", data)
 
     if not data:
         return process_error(err_msg, 400)
@@ -65,12 +64,10 @@ async def create_session():
     meeting_token = data.get("meeting_token")
 
     c = BotConfig(openai_api_key, openai_model_name, room_url, meeting_token)
-    print("config:", c, openai_api_key)
     session = operator.create_session(c)
     if session:
         task = threading.Thread(target=session.start)
         task.start()
-        print("created session:", session.id)
     return jsonify({
         "room_url": room_url
     }), 200

@@ -89,7 +89,7 @@ export const Transcript = ({ roomUrl }) => {
 
   return (
     <div className="transcript" ref={transcriptRef}>
-      <h3>Transcript</h3> 
+      <h3>Transcript</h3>
       {transcript
         ? transcript.split("\n").map((line, i) => (
             <Fragment key={`transcript-${i}`}>

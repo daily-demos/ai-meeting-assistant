@@ -55,22 +55,14 @@ class Session(EventHandler):
     _is_destroyed: bool
     _shutdown_timer: threading.Timer | None = None
 
-    # Daily-REST-API-related properties
-    _daily_auth_headers: dict[str, str] = None
-    _daily_api_url: str = None
-
     def __init__(self, config: BotConfig):
         super().__init__()
         self._is_destroyed = False
-        headless = isinstance(config, BotConfig)
-
-        self._is_headless = headless
         self._config = config
         self._summary = None
         self._id = None
         self._room = self._get_room_config(self._config.daily_room_url)
         self._logger = self.create_logger(self._room.name)
-        self._logger.info("Config: %s %s", config, self._room)
         self._assistant = OpenAIAssistant(
             config.openai_api_key,
             config.openai_model_name,
@@ -261,12 +253,6 @@ class Session(EventHandler):
         loop.run_until_complete(
             self.poll_async_func(
                 self._generate_clean_transcript, 30))
-
-    async def poll_async_func(self, async_func, interval):
-        """Runs an async function at regular intervals until the session is destroyed."""
-        while not self._is_destroyed:
-            await async_func()
-            await asyncio.sleep(interval)
 
     # TODO: (Liza) Uncomment this when transcription events are properly invoked
     # if the transcription is starte before the bot joins.

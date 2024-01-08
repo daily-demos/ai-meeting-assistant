@@ -1,12 +1,5 @@
 import requests
 
-
-class HeadlessNotPermittedException(Exception):
-    def __init__(self, action: str):
-        super().__init__(
-            f"Cannot {action} in headless mode.")
-
-
 class SessionNotFoundException(Exception):
     def __init__(self, session_id: str):
         super().__init__(
