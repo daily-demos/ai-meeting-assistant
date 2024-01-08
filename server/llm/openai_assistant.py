@@ -216,6 +216,9 @@ class OpenAIAssistant(Assistant):
             res = await future
             return res
         except Exception as e:
+            if "No assistant found" in str(e):
+                self._oai_assistant_id = self.get_or_create_assistant(self._model_name)
+                return await self.query(custom_query)
             raise Exception(f"Failed to query OpenAI thread: {e}") from e
 
     def _compile_ctx_content(self, new_text: str,
