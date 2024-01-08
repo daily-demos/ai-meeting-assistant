@@ -13,30 +13,43 @@ import {
   getOpenTranscriptButton,
 } from "../utils/custom-buttons";
 import { GlobalStyles } from "./GlobalStyles";
-import { CopyRoomURLButton } from "./CopyRoomURLButton";
 import { useRouter } from "next/router";
 import { AIAssistant } from "./AIAssistant";
 import { Transcript } from "./Transcript";
+import { CopyContentButton } from "./CopyContentButton";
 
 export default function App() {
   const { query } = useRouter();
   const [url, setUrl] = useState("");
+  const [meetingToken, setMeetingToken] = useState("");
   const [daily, setDaily] = useState(null);
   const [isJoining, setIsJoining] = useState(false);
   const [aiView, setAiView] = useState(null);
   const wrapperRef = useRef(null);
 
-  const joinRoom = useCallback(async (url) => {
+  const joinRoom = useCallback(async (url, dailyKey, oaiKey, wantBotToken) => {
     setIsJoining(true);
-    const response = await fetch("/api/create-session", {
-      method: "POST",
-      body: JSON.stringify({
-        room_url: url,
-      }),
-    });
-    const body = await response.json();
-    if (body.url) {
-      setUrl(body.url);
+    if (url && dailyKey && oaiKey) {
+      const response = await fetch("/api/create-session", {
+        method: "POST",
+        body: JSON.stringify({
+          room_url: url,
+          daily_api_key: dailyKey,
+          want_bot_token: wantBotToken,
+          openai_api_key: oaiKey,
+        }),
+      });
+      const body = await response.json();
+      if (response.ok) {
+        setMeetingToken(body.token);
+        setUrl(url);
+      } else {
+        console.error("failed to create session:", body);
+      }
+    } else if (url) {
+      setUrl(url);
+    } else  {
+      console.error("URL must be provided") 
     }
     setIsJoining(false);
   }, []);
@@ -49,9 +62,13 @@ export default function App() {
 
   const handleSubmit = async (ev) => {
     ev.preventDefault();
-    const roomUrl = ev.target.elements?.url?.value;
-    joinRoom(roomUrl);
+    const eles = ev.target.elements
+    const roomUrl = eles.url?.value;
+    const dailyKey = eles.dailyKey?.value;
+    const oaiKey = eles.oaiKey?.value;
+    joinRoom(roomUrl, dailyKey, oaiKey);
   };
+
 
   useEffect(
     function initAppEffect() {
@@ -72,7 +89,8 @@ export default function App() {
         if (DailyIframe.getCallInstance()) {
           await DailyIframe.getCallInstance().destroy();
         }
-        const frame = DailyIframe.createFrame(wrapperRef.current, {
+
+        const opts = {
           showLeaveButton: true,
           showUserNameChangeUI: true,
           url,
@@ -81,9 +99,13 @@ export default function App() {
             [transcriptId]: getOpenTranscriptButton(),
             [disableCCId]: getDisableCCButton(),
           },
-        });
+        }
+            
+        if (meetingToken) {
+          opts.token = meetingToken;
+        }
+        const frame = DailyIframe.createFrame(wrapperRef.current, opts);
         setDaily(frame);
-        await frame.join();
 
         frame.on("custom-button-click", handleCustomButtonClick);
 
@@ -94,11 +116,19 @@ export default function App() {
           setUrl("");
           setAiView(null);
         });
+
+        await frame.join();
       };
       initFrame();
     },
     [url],
   );
+
+  const setInviteUrl = (roomURL) => {
+    const inviteUrl = new URL(window.location.href);
+    inviteUrl.searchParams.set("url", roomURL);
+    return inviteUrl.toString();
+  }
 
   return (
     <DailyProvider callObject={daily}>
@@ -107,7 +137,7 @@ export default function App() {
         {url ? (
           <>
             <div className="actions">
-              <CopyRoomURLButton url={url} />
+              <CopyContentButton content={setInviteUrl(url)} label="Copy room URL" />
             </div>
             <div className="container">
               <div className="call">
@@ -154,13 +184,33 @@ export default function App() {
               other information, based on the spoken words.
             </p>
             <div>
-              <form onSubmit={handleSubmit}>
+              <form onSubmit={handleSubmit} style={{ flexDirection: 'column' }}>
                 <input
                   readOnly={isJoining}
                   type="url"
                   name="url"
                   placeholder="Room URL (optional)"
+                />     
+              <input
+                  readOnly={isJoining}
+                  type="password"
+                  name="dailyKey"
+                  placeholder="Daily API key"
+                /> 
+                <input
+                  readOnly={isJoining}
+                  type="password"
+                  name="oaiKey"
+                  placeholder="OpenAI API key"
                 />
+                <span>
+                  <label htmlFor="wantBotToken">Give bot a meeting token</label>
+                  <input
+                    readOnly={isJoining}
+                    type="checkbox"
+                    name="wantBotToken"
+                  />       
+                </span>
                 <button disabled={isJoining} type="submit">
                   Join
                 </button>
