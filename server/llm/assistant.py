@@ -4,7 +4,9 @@ from abc import ABC, abstractmethod
 
 class NoContextError(Exception):
     """Raised when a query is made but no context is available"""
-    pass
+    def __init__(self):
+        m = "No context available."
+        super().__init__(m)
 
 
 class Assistant(ABC):
@@ -17,4 +19,12 @@ class Assistant(ABC):
 
     @abstractmethod
     async def query(self, custom_query: str) -> str:
+        """Runs a query against the assistant and returns the answer."""
+
+    @abstractmethod
+    async def get_clean_transcript(self) -> str:
+        """Runs a query against the assistant and returns the answer."""
+
+    @abstractmethod
+    async def cleanup_transcript(self) -> str:
         """Runs a query against the assistant and returns the answer."""

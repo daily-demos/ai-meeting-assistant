@@ -88,6 +88,23 @@ async def summary():
     except Exception as e:
         return process_error('failed to generate meeting summary', 500, e)
 
+@app.route('/transcript', methods=['GET'])
+async def transcript():
+    """Creates and returns a summary of the meeting at the provided room URL."""
+    room_url = request.args.get("room_url")
+    if not room_url:
+        return process_error('room_url query parameter must be provided', 400)
+    try:
+        got_transcript = operator.get_clean_transcript(room_url)
+        return jsonify({
+            "transcript": got_transcript
+        }), 200
+    except SessionNotFoundException as e:
+        return process_error(
+            'Requested session not found. Has it been destroyed?', 400, e)
+    except Exception as e:
+        return process_error('failed to obtain transcript', 500, e)
+
 
 @app.route('/query', methods=['POST'])
 async def query():
