@@ -12,7 +12,6 @@ import {
   useDaily,
   useDailyEvent,
 } from "@daily-co/daily-react";
-import { CopyIcon } from "./icons/CopyIcon";
 import { CopyContentButton } from "./CopyContentButton";
 import { SaveFileButton } from "./SaveContentButton";
 
@@ -91,13 +90,6 @@ export const Transcript = ({ roomUrl }) => {
   return (
     <div className="transcript" ref={transcriptRef}>
       <h3>Transcript</h3> 
-      <p style={{
-        display: "flex",
-        flexDirection: "row",
-      }}>
-        <CopyContentButton content={transcript} />
-        <SaveFileButton content={transcript} filePrefix="transcript" />
-      </p>
       {transcript
         ? transcript.split("\n").map((line, i) => (
             <Fragment key={`transcript-${i}`}>
@@ -106,6 +98,13 @@ export const Transcript = ({ roomUrl }) => {
             </Fragment>
           ))
         : "No transcript available."}
+      <p style={{
+        display: "flex",
+        flexDirection: "row",
+      }}>
+        <CopyContentButton content={transcript} />
+        <SaveFileButton content={transcript} filePrefix="transcript" />
+      </p>
       <GlobalStyles />
       <style jsx>{`
         .transcript {

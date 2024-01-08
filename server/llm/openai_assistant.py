@@ -13,18 +13,23 @@ from server.llm.assistant import Assistant, NoContextError
 
 _assistant_name = "daily-ai-assistant"
 
+
 def probe_api_key(api_key: str) -> bool:
     """Probes the OpenAI API with the provided key to ensure it is valid."""
     try:
         client = OpenAI(api_key=api_key)
         client.chat.completions.create(
             model="gpt-3.5-turbo",
-            messages=[ChatCompletionUserMessageParam(content="This is a test", role="user")],
+            messages=[
+                ChatCompletionUserMessageParam(
+                    content="This is a test",
+                    role="user")],
         )
         return True
     except Exception as e:
         print(f"Failed to probe OpenAI API key: {e}")
         return False
+
 
 class OpenAIAssistant(Assistant):
     """Class that implements assistant features using the OpenAI API"""
@@ -59,7 +64,7 @@ class OpenAIAssistant(Assistant):
 
     _default_prompt = """
          Primary Instruction:
-         Based on the provided meeting transcripts, please create a concise summary. 
+         Based on the provided meeting transcripts, please create a concise summary.
          Your summary should include:
 
             1. Key discussion points.

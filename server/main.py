@@ -57,7 +57,7 @@ async def create_session():
     openai_api_key = data.get("openai_api_key")
     if not room_url or not openai_api_key:
         return process_error(err_msg, 400)
-    
+
     if probe_api_key(openai_api_key) is False:
         return process_error("Invalid OpenAI API key", 400)
 
