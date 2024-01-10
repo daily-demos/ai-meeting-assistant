@@ -2,16 +2,13 @@
 import asyncio
 from collections import deque
 import logging
-import threading
 
 from openai import OpenAI
-from openai.types.beta import Assistant
 from openai.types.chat import ChatCompletionMessageParam, ChatCompletionSystemMessageParam, \
     ChatCompletionUserMessageParam
 
 from server.llm.assistant import Assistant, NoContextError
-
-_assistant_name = "daily-ai-assistant"
+from server.store.memory import MemoryStore
 
 
 def probe_api_key(api_key: str) -> bool:
@@ -35,8 +32,6 @@ class OpenAIAssistant(Assistant):
     """Class that implements assistant features using the OpenAI API"""
     _client: OpenAI = None
 
-    _oai_assistant_id: int = None
-    _oai_summary_thread_id: int = None
     _model_name: str = None
     _logger: logging.Logger = None
 
@@ -49,28 +44,27 @@ class OpenAIAssistant(Assistant):
     # Process 20 context items at a time.
     _transcript_batch_size: int = 25
 
+    _store: MemoryStore = None
     _default_transcript_prompt = ChatCompletionSystemMessageParam(content="""
         Using the exact transcript provided in the previous messages, convert it into a cleaned-up, paragraphed format. It is crucial that you strictly adhere to the content of the provided transcript without adding or modifying any of the original dialogue. Your tasks are to:
 
-        1. Correct punctuation and spelling mistakes.
-        2. Merge broken sentences into complete ones.
-        3. Remove timestamps and transcript types.
-        4. Clearly indicate the speaker's name at the beginning of their dialogue.
+        1. Include speaker's name at the beginning of each dialogue
+        2. Correct punctuation and spelling mistakes.
+        3. Merge broken sentences into complete ones.
+        4. Remove timestamps and transcript types.
 
         Do not add any new content or dialogue that was not present in the original transcript. The focus is on cleaning and reformatting the existing content for clarity and readability.
-        """,
-                                                                  role="system")
+        """, role="system")
 
     _default_prompt = """
-         Primary Instruction:
-         Based on the provided meeting transcripts, please create a concise summary.
+         Based on the above meeting transcript context, please create a concise summary.
          Your summary should include:
 
             1. Key discussion points.
             2. Decisions made.
             3. Action items assigned.
 
-        Keep the summary within six sentences, ensuring it captures the essence of the conversation. Structure it in clear, digestible parts for easy understanding. Rely solely on information from the transcript; do not infer or add information not explicitly mentioned. Exclude any square brackets, tags, or timestamps from the summary. Instead of re-parsing the entire context, use previous summaries you've generated to inform the completion of each new summary. Each summary should be holistic and represent the entire call.
+        Keep the summary within six sentences, ensuring it captures the essence of the conversation. Structure it in clear, digestible parts for easy understanding. Rely solely on information from the transcript; do not infer or add information not explicitly mentioned. Exclude any square brackets, tags, or timestamps from the summary.
         """
 
     def __init__(self, api_key: str, model_name: str = None,
@@ -88,30 +82,11 @@ class OpenAIAssistant(Assistant):
         self._client = OpenAI(
             api_key=api_key,
         )
-        self._oai_assistant_id = self.get_or_create_assistant(model_name)
-
-    def get_or_create_assistant(self, model_name) -> str:
-        """Gets or creates an OpenAI assistant"""
-        all_assistants = self._client.beta.assistants.list()
-        for assistant in all_assistants.data:
-            if assistant.name == _assistant_name and assistant.instructions == self._default_prompt:
-                return assistant.id
-        return self._client.beta.assistants.create(name=_assistant_name, description="Daily meeting summary assistant",
-                                                   instructions=self._default_prompt,
-                                                   model=model_name).id
+        self._store = MemoryStore(self._client)
 
     def destroy(self):
         """Destroys the assistant and relevant resources"""
-        self._logger.info(
-            "Destroying thread (%s) and assistant (%s)",
-            self._oai_summary_thread_id,
-            self._oai_assistant_id)
-        bc = self._client.beta
-        if self._oai_summary_thread_id:
-            bc.threads.delete(self._oai_summary_thread_id)
-
-        if self._oai_assistant_id:
-            bc.assistants.delete(self._oai_assistant_id)
+        self._store.destroy()
 
     def register_new_context(self, new_text: str, metadata: list[str] = None):
         """Registers new context (usually a transcription line)."""
@@ -136,18 +111,6 @@ class OpenAIAssistant(Assistant):
             self._clean_transcript_running = False
             raise NoContextError()
 
-        if self._oai_summary_thread_id:
-            active_runs = self._client.beta.threads.runs.list(
-                self._oai_summary_thread_id)
-            if len(active_runs.data) > 0:
-                self._clean_transcript_running = False
-                active_statuses = ["in-progress"]
-                for run in active_runs.data:
-                    if run.status in active_statuses:
-                        self._logger.info(
-                            "Active run, won't clean transcript: %s (%s)", run, run.status)
-                        return
-
         # How many transcript lines to process
         to_fetch = self._transcript_batch_size
 
@@ -171,15 +134,8 @@ class OpenAIAssistant(Assistant):
                 None, self._make_openai_request, messages)
             res = await future
             self._clean_transcript += f"\n\n{res}"
-
-            # Create a new OpenAI summary thread if it does not yet exist.
-            if not self._oai_summary_thread_id:
-                self._create_summary_thread()
-
-            # Append new message with this batch of cleaned-up transcript to
-            # thread
-            self._client.beta.threads.messages.create(
-                self._oai_summary_thread_id, content=res, role="user")
+            self._store.add(
+                [ChatCompletionUserMessageParam(role="user", content=res)])
             self._clean_transcript_running = False
         except Exception as e:
             # Re-insert failed items into the queue,
@@ -189,35 +145,36 @@ class OpenAIAssistant(Assistant):
             self._clean_transcript_running = False
             raise Exception(f"Failed to query OpenAI: {e}") from e
 
-    def _create_summary_thread(self):
-        """Creates a new OpenAI thread to store the summary context in"""
-        thread = self._client.beta.threads.create()
-        self._oai_summary_thread_id = thread.id
-
     async def query(self, custom_query: str = None) -> str:
         """Submits a query to OpenAI with the stored context if one is provided.
         If a query is not provided, uses the default."""
-        if not self._oai_summary_thread_id:
-            raise NoContextError()
 
+        input_param: ChatCompletionUserMessageParam = None
+        search_param: ChatCompletionUserMessageParam = None
+        ctx = []
+        if custom_query:
+            search_param = ChatCompletionUserMessageParam(
+                content=custom_query, role="user")
+            input_param = search_param
+            ctx = self._store.gather_context(input_param, 4096)
+
+        else:
+            ctx = [ChatCompletionUserMessageParam(
+                content=self._clean_transcript, role="user")]
+            input_param =ChatCompletionUserMessageParam(
+                content=self._default_prompt, role="system")
+            
+        final_ctx = ctx + [input_param]
         try:
             loop = asyncio.get_event_loop()
-            future: asyncio.Future = None
-            if not custom_query:
-                future = loop.run_in_executor(
-                    None, self._make_openai_thread_request, self._oai_summary_thread_id)
-            else:
-                future = loop.run_in_executor(
-                    None, self._make_openai_request, [
-                        ChatCompletionUserMessageParam(
-                            content=self._clean_transcript, role="user"),
-                        ChatCompletionSystemMessageParam(content=custom_query, role="system")])
+            future = loop.run_in_executor(
+                None, self._make_openai_request, final_ctx)
             res = await future
+            if not custom_query:
+                self._store.add(
+                    [ChatCompletionUserMessageParam(role="assistant", content=res)])
             return res
         except Exception as e:
-            if "No assistant found" in str(e):
-                self._oai_assistant_id = self.get_or_create_assistant(self._model_name)
-                return await self.query(custom_query)
             raise Exception(f"Failed to query OpenAI thread: {e}") from e
 
     def _compile_ctx_content(self, new_text: str,
@@ -232,10 +189,10 @@ class OpenAIAssistant(Assistant):
     def _make_openai_request(
             self, messages: list[ChatCompletionMessageParam]) -> str:
         """Makes a chat completion request to OpenAI and returns the response."""
+
         res = self._client.chat.completions.create(
             model=self._model_name,
             messages=messages,
-            temperature=0,
         )
 
         for choice in res.choices:
@@ -246,25 +203,3 @@ class OpenAIAssistant(Assistant):
         raise Exception(
             "No usable choice found in OpenAI response: %s",
             res.choices)
-
-    def _make_openai_thread_request(
-            self, thread_id: list) -> str:
-        """Creates a thread run and returns the response."""
-
-        threads = self._client.beta.threads
-        run = threads.runs.create(
-            assistant_id=self._oai_assistant_id,
-            thread_id=thread_id,
-        )
-        while run.status != "completed":
-            run = threads.runs.retrieve(
-                thread_id=thread_id,
-                run_id=run.id
-            )
-
-        messages = threads.messages.list(
-            thread_id=thread_id,
-        )
-        msg_data = messages.data[0]
-        answer = msg_data.content[0].text.value
-        return answer

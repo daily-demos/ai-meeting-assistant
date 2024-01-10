@@ -130,7 +130,7 @@ class Session(EventHandler):
         # just return that.
         if want_cached_summary and self._summary:
             seconds_since_generation = time.time() - self._summary.retrieved_at
-            if seconds_since_generation < 30:
+            if seconds_since_generation < 15:
                 self._logger.info("Returning cached summary")
                 answer = self._summary.content
 
@@ -252,7 +252,7 @@ class Session(EventHandler):
         asyncio.set_event_loop(loop)
         loop.run_until_complete(
             self.poll_async_func(
-                self._generate_clean_transcript, 30))
+                self._generate_clean_transcript, 15))
 
     # TODO: (Liza) Uncomment this when transcription events are properly invoked
     # if the transcription is starte before the bot joins.
@@ -272,10 +272,10 @@ class Session(EventHandler):
 
     def on_transcription_message(self, message):
         """Callback invoked when a transcription message is received."""
-        user_name = message["user_name"]
+        user_name = f'Name: {message["user_name"]}'
         text = message["text"]
         timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')
-        metadata = [user_name, 'voice', timestamp]
+        metadata = [user_name, 'voice', f"Sent at {timestamp}"]
         self._assistant.register_new_context(text, metadata)
 
     def on_participant_joined(self, participant):
