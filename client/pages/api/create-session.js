@@ -2,6 +2,8 @@ import { API_HOST , DAILY_API_KEY, OPENAI_API_KEY } from "../../utils/api";
 
 const createSessionBackend = `${API_HOST}/session`;
 
+const dailyAPIKeyErr = "Invalid Daily API key";
+
 export default async function handler(req, res) {
   const reqBody = JSON.parse(req.body);
   let { room_url, daily_api_key, openai_api_key, want_bot_token } = reqBody;
@@ -17,11 +19,21 @@ export default async function handler(req, res) {
     });
     return;
   }
-  const ownerToken = await getMeetingToken(room_url, daily_api_key, true);
-  let botToken;
-  if (want_bot_token) {
-    botToken = await getMeetingToken(room_url, daily_api_key, false);
+  let ownerToken, botToken;
+  try {
+    ownerToken = await getMeetingToken(room_url, daily_api_key, true);
+    if (want_bot_token) {
+      botToken = await getMeetingToken(room_url, daily_api_key, false);
+    }
+  } catch (err) {
+    if (err.message === dailyAPIKeyErr) {
+      res.status(400).json({
+        error: dailyAPIKeyErr,
+      });
+      return;
+    }
   }
+
 
   const response = await fetch(createSessionBackend, {
     headers: {
@@ -36,6 +48,11 @@ export default async function handler(req, res) {
   });
   if (!response.ok) {
     const body = await response.text();
+    if (response.status === 401) {
+      res.status(401).json({
+        error: body,
+      });
+    }
     res.status(500).json({
       error: "Error when creating session",
       details: body,
@@ -73,6 +90,10 @@ async function getMeetingToken(roomURL, dailyKey, isOwner) {
       body: JSON.stringify(tokenProperties)
    });
   if (!response.ok) {
+    if (response.status === 401) {
+      throw new Error(dailyAPIKeyErr)
+    }
+
     const err = await response.text();
     throw new Error(`Failed to get meeting token: ${err}`);
   }

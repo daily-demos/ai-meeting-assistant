@@ -48,13 +48,20 @@ export const AIAssistant = ({ roomUrl }) => {
     "app-message",
     useCallback((ev) => {
       const data = ev?.data;
-      if (data?.kind === "ai-summary") {
-        setSummary(data.data);
+      if (!data) return;
+      const kind = data.kind;
+      const err = data.error;
+      if (err) {
+        playAudioError();
+      }
+      const msg = err ? err : data.data;
+      if (kind === "ai-summary") {
+        setSummary(msg);
         setIsSummarizing(false);
         return;
       }
-      if (data?.kind === "ai-query") {
-        setChatHistory((prev) => [...prev, createAssistantMessage(data.data)]);
+      if (kind === "ai-query") {
+        setChatHistory((prev) => [...prev, createAssistantMessage(msg)]);
         setIsPrompting(false);
         return;
       }

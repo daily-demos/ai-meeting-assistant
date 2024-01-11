@@ -58,7 +58,7 @@ async def create_session():
         return process_error(err_msg, 400)
 
     if probe_api_key(openai_api_key) is False:
-        return process_error("Invalid OpenAI API key", 400)
+        return process_error("Invalid OpenAI API key", 401)
 
     openai_model_name = data.get("openai_model_name")
     meeting_token = data.get("meeting_token")
