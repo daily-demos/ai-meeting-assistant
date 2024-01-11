@@ -147,8 +147,12 @@ class Session(EventHandler):
                     self._summary = Summary(
                         content=answer, retrieved_at=time.time())
             except NoContextError:
-                answer = ("Sorry! I don't have any context saved yet. Please try speaking to add some context and "
+                answer = ("I don't have any context saved yet. Please speak to add some context or "
                           "confirm that transcription is enabled.")
+            except Exception as e:
+                self._logger.error(
+                    "Failed to query assistant: %s", e)
+                answer = ("Something went wrong while generating the summary. Please check the server logs.")
 
         return answer
 
