@@ -61,6 +61,15 @@ export const AIAssistant = ({ roomUrl }) => {
     }, []),
   );
 
+  useDailyEvent(
+    "network-connection",
+    useCallback((ev) => {
+      if (ev.type === "signaling" && ev.event === "connected") {
+        setTimeout(handleSummaryClick, 100)
+      }
+    }, [daily]),
+  );
+
   const playAudioMsg = () => {
     if (!audioMsgRef.current || !playSounds) return;
     audioMsgRef.current.currentTime = 0;
@@ -102,11 +111,14 @@ export const AIAssistant = ({ roomUrl }) => {
       daily.sendAppMessage({
         "kind": "assist",
         "task": "summary",
+        "broadcast": true,
       }, "*")
       playAudioMsg();
-    } catch {
+    } catch (e) {
+      console.error("Failed to request summary:", e)
       setSummary(summaryErrorText);
       playAudioError();
+      setIsSummarizing(false);
     } 
   };
 

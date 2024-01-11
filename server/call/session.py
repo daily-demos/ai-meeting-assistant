@@ -126,11 +126,11 @@ class Session(EventHandler):
         want_cached_summary = not bool(custom_query)
         answer = None
 
-        # If we want a generic summary, and we have a cached one that's less than 30 seconds old,
+        # If we want a generic summary, and we have a cached one that's less than 15 seconds old,
         # just return that.
         if want_cached_summary and self._summary:
             seconds_since_generation = time.time() - self._summary.retrieved_at
-            if seconds_since_generation < 30:
+            if seconds_since_generation < 15:
                 self._logger.info("Returning cached summary")
                 answer = self._summary.content
 
@@ -176,7 +176,7 @@ class Session(EventHandler):
 
         # If this is a broadcast, set recipient to all participants
         if bool(data.get("broadcast")):
-            recipient = "*"
+            recipient = None
 
         task = data.get("task")
 
@@ -247,12 +247,12 @@ class Session(EventHandler):
             await asyncio.sleep(interval)
 
     def start_transcript_polling(self):
-        """Starts an asyncio event loop and schedules generate_clean_transcript to run every 30 seconds."""
+        """Starts an asyncio event loop and schedules generate_clean_transcript to run every 15 seconds."""
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
         loop.run_until_complete(
             self.poll_async_func(
-                self._generate_clean_transcript, 30))
+                self._generate_clean_transcript, 15))
 
     # TODO: (Liza) Uncomment this when transcription events are properly invoked
     # if the transcription is starte before the bot joins.
