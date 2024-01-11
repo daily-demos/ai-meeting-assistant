@@ -95,7 +95,7 @@ function getDailyAPIURL(roomURL) {
   if (hostParts.length > 3) {
     subdomain = `${hostParts[1]}.`
   }
-  return `https://${subdomain}api.daily.co/v1`
+  return `https://api.${subdomain}daily.co/v1`
 } 
 
 /**
