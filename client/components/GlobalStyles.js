@@ -14,6 +14,8 @@ export const GlobalStyles = () => {
         --highlight: #1bebb9;
         --highlight50: #d1fbf1;
         --highlight-text: #121a24;
+        --summary50: #ffeed5;
+        --summary: #feaa2c;
 
         height: 100%;
         margin: 0;
@@ -29,6 +31,8 @@ export const GlobalStyles = () => {
           --highlight: #1bebb9;
           --highlight50: #2ba698;
           --highlight-text: #121a24;
+          --summary50: #ea8b00;
+          --summary: #feaa2c;
         }
       }
 
