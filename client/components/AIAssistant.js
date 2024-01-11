@@ -61,10 +61,13 @@ export const AIAssistant = ({ roomUrl }) => {
     }, []),
   );
 
+  const hasRequestedInitialSummary = useRef(false);
   useDailyEvent(
     "network-connection",
     useCallback((ev) => {
       if (ev.type === "signaling" && ev.event === "connected") {
+        if (hasRequestedInitialSummary.current) return;
+        hasRequestedInitialSummary.current = true;
         setTimeout(handleSummaryClick, 100)
       }
     }, [daily]),
