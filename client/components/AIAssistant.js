@@ -122,6 +122,18 @@ export const AIAssistant = () => {
     }, []),
   );
 
+  const hasRequestedInitialSummary = useRef(false);
+  useDailyEvent(
+    "network-connection",
+    useCallback((ev) => {
+      if (ev.type === "signaling" && ev.event === "connected") {
+        if (hasRequestedInitialSummary.current) return;
+        hasRequestedInitialSummary.current = true;
+        setTimeout(handleSummaryClick, 100)
+      }
+    }, [daily]),
+  );
+
   const playAudioMsg = () => {
     if (!audioMsgRef.current || !playSounds) return;
     audioMsgRef.current.currentTime = 0;
@@ -166,6 +178,7 @@ export const AIAssistant = () => {
         {
           kind: "assist",
           task: "summary",
+          broadcast: true,
         },
         "*",
       );
@@ -175,6 +188,7 @@ export const AIAssistant = () => {
         createAssistantMessage(responseErrorText),
       ]);
       playAudioError();
+      setIsSummarizing(false);
     }
   };
 
