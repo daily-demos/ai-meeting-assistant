@@ -126,7 +126,7 @@ class Session(EventHandler):
         want_cached_summary = not bool(custom_query)
         answer = None
 
-        # If we want a generic summary, and we have a cached one that's less than 30 seconds old,
+        # If we want a generic summary, and we have a cached one that's less than 15 seconds old,
         # just return that.
         if want_cached_summary and self._summary:
             seconds_since_generation = time.time() - self._summary.retrieved_at
@@ -147,8 +147,12 @@ class Session(EventHandler):
                     self._summary = Summary(
                         content=answer, retrieved_at=time.time())
             except NoContextError:
-                answer = ("Sorry! I don't have any context saved yet. Please try speaking to add some context and "
+                answer = ("I don't have any context saved yet. Please speak to add some context or "
                           "confirm that transcription is enabled.")
+            except Exception as e:
+                self._logger.error(
+                    "Failed to query assistant: %s", e)
+                answer = ("Something went wrong while generating the summary. Please check the server logs.")
 
         return answer
 
@@ -176,7 +180,7 @@ class Session(EventHandler):
 
         # If this is a broadcast, set recipient to all participants
         if bool(data.get("broadcast")):
-            recipient = "*"
+            recipient = None
 
         task = data.get("task")
 
@@ -247,7 +251,7 @@ class Session(EventHandler):
             await asyncio.sleep(interval)
 
     def start_transcript_polling(self):
-        """Starts an asyncio event loop and schedules generate_clean_transcript to run every 30 seconds."""
+        """Starts an asyncio event loop and schedules generate_clean_transcript to run every 15 seconds."""
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
         loop.run_until_complete(
