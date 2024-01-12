@@ -99,7 +99,7 @@ export const ClosedCaptions = ({ style = {} }) => {
       <style jsx>{`
         .closed-captions {
           bottom: 100px;
-          font-size: 20px;
+          font-size: 14px;
           left: 50%;
           line-height: 24px;
           pointer-events: none;
