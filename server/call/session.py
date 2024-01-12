@@ -190,7 +190,7 @@ class Session(EventHandler):
         except Exception as e:
             self._logger.error("Failed to query assistant: %s", e)
             error = "Sorry! I ran into an error. Please try again."
-        
+
         msg_data = {
             "kind": f"ai-{task}",
         }
@@ -200,7 +200,10 @@ class Session(EventHandler):
 
         if error:
             msg_data["error"] = error
-        self._call_client.send_app_message(msg_data, participant=recipient, completion=self.on_app_message_sent)
+        self._call_client.send_app_message(
+            msg_data,
+            participant=recipient,
+            completion=self.on_app_message_sent)
 
     def on_left_meeting(self, _, error: str = None):
         """Cancels any ongoing shutdown timer and marks this session as destroyed"""
