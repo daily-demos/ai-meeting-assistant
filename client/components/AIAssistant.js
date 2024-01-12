@@ -2,36 +2,31 @@ import classNames from "classnames";
 import React, { useEffect, useRef, useState, useCallback } from "react";
 import ReactTimeago from "react-timeago";
 import { GlobalStyles } from "./GlobalStyles";
-import { DeleteIcon } from "./icons/DeleteIcon";
 import { VolumeOnIcon } from "./icons/VolumeOnIcon";
 import { VolumeOffIcon } from "./icons/VolumeOffIcon";
 import { SummaryIcon } from "./icons/SummaryIcon";
-import {
-  useDaily,
-  useDailyEvent,
-} from "@daily-co/daily-react";
-import { CopyContentButton } from "./CopyContentButton";
+import { useDaily, useDailyEvent } from "@daily-co/daily-react";
 
 const responseErrorText =
   "Uh oh! While I tried to get a response for you, an error occurred! Please try again.";
-const summaryErrorText =
-  "Uh oh! While I tried to get a summary for you, an error occurred! Please try again.";
+const timeoutErrorText = "Ruh roh! We didn't get a response in time!";
 
 const createUserMessage = (message) => ({
   role: "user",
   content: message,
   date: new Date(),
+  is_summary: false,
 });
 
-const createAssistantMessage = (message) => ({
+const createAssistantMessage = (message, is_summary = false) => ({
   role: "assistant",
   content: message,
   date: new Date(),
+  is_summary,
 });
 
-export const AIAssistant = ({ roomUrl }) => {
+export const AIAssistant = () => {
   const daily = useDaily();
-  const [summary, setSummary] = useState(null);
   const [chatHistory, setChatHistory] = useState([]);
 
   const [isPrompting, setIsPrompting] = useState(false);
@@ -44,25 +39,84 @@ export const AIAssistant = ({ roomUrl }) => {
   const audioMsgRef = useRef(null);
   const audioErrorRef = useRef(null);
 
+  /**
+   * Reset summary button state after 60 seconds, in case no summary was sent from server.
+   */
+  useEffect(() => {
+    if (!isSummarizing) return;
+    const timeout = setTimeout(() => {
+      setIsSummarizing(false);
+      setChatHistory((prev) => [
+        ...prev,
+        createAssistantMessage(timeoutErrorText),
+      ]);
+    }, 60000);
+    return () => {
+      clearTimeout(timeout);
+    };
+  }, [isSummarizing]);
+
+  /**
+   * Reset query button state after 60 seconds, in case no summary was sent from server.
+   */
+  useEffect(() => {
+    if (!isPrompting) return;
+    const timeout = setTimeout(() => {
+      setIsPrompting(false);
+      setChatHistory((prev) => [
+        ...prev,
+        createAssistantMessage(timeoutErrorText),
+      ]);
+    }, 60000);
+    return () => {
+      clearTimeout(timeout);
+    };
+  }, [isPrompting]);
+
   useDailyEvent(
     "app-message",
     useCallback((ev) => {
       const data = ev?.data;
-      if (!data) return;
-      const kind = data.kind;
-      const err = data.error;
-      if (err) {
-        playAudioError();
-      }
-      const msg = err ?? data.data;
-      if (kind === "ai-summary") {
-        setSummary(msg);
+      if (data?.kind === "ai-summary") {
+        setChatHistory((prev) => {
+          const summaries = prev.filter(
+            (m) => m.role === "assistant" && m.is_summary,
+          );
+          const lastSummary = summaries?.[summaries.length - 1];
+          if (!lastSummary) {
+            return [...prev, createAssistantMessage(data.data, true)];
+          }
+          if (lastSummary.content === data.data) {
+            /**
+             * Last summary had the same content, so we can simply update the timestamp.
+             */
+            lastSummary.date = new Date();
+          } else {
+            /**
+             * New summary is different, so we can just append it at the end.
+             */
+            return [...prev, createAssistantMessage(data.data, true)];
+          }
+          /**
+           * Find index of last summary.
+           */
+          const idx = prev.findIndex(
+            (m) =>
+              m.role === "assistant" &&
+              m.is_summary &&
+              m.content === lastSummary.content,
+          );
+          delete prev[idx];
+          return [...prev.filter(Boolean), lastSummary];
+        });
         setIsSummarizing(false);
+        playAudioMsg();
         return;
       }
       if (kind === "ai-query") {
         setChatHistory((prev) => [...prev, createAssistantMessage(msg)]);
         setIsPrompting(false);
+        playAudioMsg();
         return;
       }
     }, []),
@@ -88,33 +142,40 @@ export const AIAssistant = ({ roomUrl }) => {
     setChatHistory((prev) => [...prev, createUserMessage(query)]);
     try {
       setIsPrompting(true);
-      daily.sendAppMessage({
-        "kind": "assist",
-        "task": "query",
-        "query": query,
-      }, "*")
-      playAudioMsg();
+      daily.sendAppMessage(
+        {
+          kind: "assist",
+          task: "query",
+          query: query,
+        },
+        "*",
+      );
     } catch {
       setChatHistory((prev) => [
         ...prev,
         createAssistantMessage(responseErrorText),
       ]);
       playAudioError();
-    } 
+    }
   };
 
   const handleSummaryClick = async () => {
     try {
       setIsSummarizing(true);
-      daily.sendAppMessage({
-        "kind": "assist",
-        "task": "summary",
-      }, "*")
-      playAudioMsg();
+      daily.sendAppMessage(
+        {
+          kind: "assist",
+          task: "summary",
+        },
+        "*",
+      );
     } catch {
-      setSummary(summaryErrorText);
+      setChatHistory((prev) => [
+        ...prev,
+        createAssistantMessage(responseErrorText),
+      ]);
       playAudioError();
-    } 
+    }
   };
 
   useEffect(() => {
@@ -127,28 +188,7 @@ export const AIAssistant = ({ roomUrl }) => {
   return (
     <div className="ai-assistant">
       <div className="wrapper">
-        <div style={{display: "flex"}}>
-          <button
-            className="summary-btn"
-            disabled={isSummarizing}
-            type="button"
-            onClick={handleSummaryClick}
-          >
-            <SummaryIcon size={16} />
-            <span>{summary ? "Refresh summary" : "Get summary"}</span>
-          </button>
-          <CopyContentButton content={summary} />
-        </div>
-        <div className="summary">
-          {!!summary && <div className="message answer">{summary}</div>}
-        </div>
         <div className="actions">
-          {chatHistory.length > 0 && (
-            <button onClick={() => setChatHistory([])}>
-              <DeleteIcon size={16} />
-              <span>Clear chat</span>
-            </button>
-          )}
           <button
             onClick={() => setPlaySounds((p) => !p)}
             title={playSounds ? "Disable sounds" : "Enable sounds"}
@@ -167,26 +207,46 @@ export const AIAssistant = ({ roomUrl }) => {
               className={classNames("message", {
                 question: msg.role === "user",
                 answer: msg.role === "assistant",
+                summary: msg.is_summary,
               })}
             >
-              <ReactTimeago
-                date={msg.date}
-                formatter={(
-                  value,
-                  unit,
-                  suffix,
-                  epochMilliseconds,
-                  nextFormatter,
-                ) => {
-                  if (unit === "second") {
-                    return value < 30 ? `a moment ago` : `about a minute ago`;
-                  }
-                  return nextFormatter(value, unit, suffix, epochMilliseconds);
-                }}
-              />
-              {msg.content}
+              <div>
+                <strong>{msg.role === "user" ? "You" : "Assistant"}</strong>{" "}
+                <ReactTimeago
+                  date={msg.date}
+                  formatter={(
+                    value,
+                    unit,
+                    suffix,
+                    epochMilliseconds,
+                    nextFormatter,
+                  ) => {
+                    if (unit === "second") {
+                      return value < 30 ? `a moment ago` : `about a minute ago`;
+                    }
+                    return nextFormatter(
+                      value,
+                      unit,
+                      suffix,
+                      epochMilliseconds,
+                    );
+                  }}
+                />
+              </div>
+              <div>{msg.content}</div>
             </div>
           ))}
+        </div>
+        <div style={{ display: "flex" }}>
+          <button
+            className="summary-btn"
+            disabled={isSummarizing}
+            type="button"
+            onClick={handleSummaryClick}
+          >
+            <SummaryIcon size={16} />
+            <span>Get summary</span>
+          </button>
         </div>
         <form className="input" onSubmit={handleAskAISubmit}>
           <input
@@ -226,34 +286,34 @@ export const AIAssistant = ({ roomUrl }) => {
 
           display: flex;
           flex-direction: column;
+          gap: 8px;
         }
         .summary-btn {
           align-self: flex-start;
+          background: var(--summary);
           width: auto;
-          margin: 2px;
         }
-        .summary {
-          border-bottom: 1px solid var(--border);
-          flex: 1 1 50%;
-          overflow-y: auto;
-          padding: 8px 0;
+        .summary-btn:not([disabled]):hover,
+        .summary-btn:not([disabled]):focus-visible {
+          outline-color: var(--summary50);
         }
         .stream {
           flex: 1 1 50%;
           overflow-y: auto;
-          padding: 8px 0;
         }
         .actions {
           display: flex;
           gap: 4px;
           justify-content: space-between;
-          margin-top: 8px;
         }
         .actions button img {
           display: block;
         }
         .message {
           border-radius: 4px;
+          display: flex;
+          flex-direction: column;
+          gap: 4px;
           padding: 8px;
           text-align: left;
           width: auto;
@@ -268,8 +328,11 @@ export const AIAssistant = ({ roomUrl }) => {
           margin-right: 2rem;
           white-space: pre-wrap;
         }
+        .message.summary {
+          background: var(--summary50);
+          border: none;
+        }
         .message :global(time) {
-          display: block;
           font-style: italic;
           font-size: 0.75rem;
         }
