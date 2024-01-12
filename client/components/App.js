@@ -48,8 +48,8 @@ export default function App() {
       }
     } else if (url) {
       setUrl(url);
-    } else  {
-      console.error("URL must be provided") 
+    } else {
+      console.error("URL must be provided");
     }
     setIsJoining(false);
   }, []);
@@ -62,13 +62,12 @@ export default function App() {
 
   const handleSubmit = async (ev) => {
     ev.preventDefault();
-    const eles = ev.target.elements
+    const eles = ev.target.elements;
     const roomUrl = eles.url?.value;
     const dailyKey = eles.dailyKey?.value;
     const oaiKey = eles.oaiKey?.value;
     joinRoom(roomUrl, dailyKey, oaiKey);
   };
-
 
   useEffect(
     function initAppEffect() {
@@ -99,8 +98,8 @@ export default function App() {
             [transcriptId]: getOpenTranscriptButton(),
             [disableCCId]: getDisableCCButton(),
           },
-        }
-            
+        };
+
         if (meetingToken) {
           opts.token = meetingToken;
         }
@@ -128,16 +127,18 @@ export default function App() {
     const inviteUrl = new URL(window.location.href);
     inviteUrl.searchParams.set("url", roomURL);
     return inviteUrl.toString();
-  }
+  };
 
   return (
     <DailyProvider callObject={daily}>
       <div className="App">
-        <h1>Daily AI Meeting Assistant Demo</h1>
         {url ? (
           <>
             <div className="actions">
-              <CopyContentButton content={setInviteUrl(url)} label="Copy room URL" />
+              <CopyContentButton
+                content={setInviteUrl(url)}
+                label="Copy room URL"
+              />
             </div>
             <div className="container">
               <div className="call">
@@ -175,6 +176,7 @@ export default function App() {
           </>
         ) : (
           <>
+            <h1>Daily AI Meeting Assistant Demo</h1>
             <p>
               Join the call and the AI Assistant bot joins and starts
               transcription automatically.
@@ -184,19 +186,19 @@ export default function App() {
               other information, based on the spoken words.
             </p>
             <div>
-              <form onSubmit={handleSubmit} style={{ flexDirection: 'column' }}>
+              <form onSubmit={handleSubmit} style={{ flexDirection: "column" }}>
                 <input
                   readOnly={isJoining}
                   type="url"
                   name="url"
                   placeholder="Room URL (optional)"
-                />     
-              <input
+                />
+                <input
                   readOnly={isJoining}
                   type="password"
                   name="dailyKey"
                   placeholder="Daily API key"
-                /> 
+                />
                 <input
                   readOnly={isJoining}
                   type="password"
@@ -209,7 +211,7 @@ export default function App() {
                     readOnly={isJoining}
                     type="checkbox"
                     name="wantBotToken"
-                  />       
+                  />
                 </span>
                 <button disabled={isJoining} type="submit">
                   Join
@@ -232,6 +234,10 @@ export default function App() {
           position: relative;
           text-align: center;
           width: 100%;
+        }
+        h1 {
+          font-size: 1.25rem;
+          margin: 0.5rem 0;
         }
         form {
           display: flex;
