@@ -54,7 +54,7 @@ export const AIAssistant = ({ roomUrl }) => {
       if (err) {
         playAudioError();
       }
-      const msg = err ? err : data.data;
+      const msg = err ?? data.data;
       if (kind === "ai-summary") {
         setSummary(msg);
         setIsSummarizing(false);
