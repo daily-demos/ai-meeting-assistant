@@ -45,6 +45,8 @@ export default function App() {
         setUrl(url);
       } else {
         console.error("failed to create session:", body);
+        const errorEle = document.getElementById("error");
+        errorEle.innerHTML = body.error;
       }
     } else if (url) {
       setUrl(url);
@@ -186,6 +188,7 @@ export default function App() {
               other information, based on the spoken words.
             </p>
             <div>
+              <div id="error" style={{color: 'red'}}></div>
               <form onSubmit={handleSubmit} style={{ flexDirection: "column" }}>
                 <input
                   readOnly={isJoining}
