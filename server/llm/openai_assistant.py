@@ -58,13 +58,17 @@ class OpenAIAssistant(Assistant):
 
     _default_prompt = """
          Based on the above meeting transcript context, please create a concise summary.
-         Your summary should include:
+         Assume the role of a professional note taker for business meetings.
+         Your summary should include 3 separate sections:
 
-            1. Key discussion points.
-            2. Decisions made.
-            3. Action items assigned.
+            1. Key discussion points written as bullet points
+            2. Decisions made written as bullet points
+            3. Action items assigned written as bullet points
 
-        Keep the summary within six sentences, ensuring it captures the essence of the conversation. Structure it in clear, digestible parts for easy understanding. Rely solely on information from the transcript; do not infer or add information not explicitly mentioned. Exclude any square brackets, tags, or timestamps from the summary.
+        Keep the summary within 12 sentences, ensuring it captures the 3 sections of the conversation. 
+        Structure it in clear, digestible paragraphs for easy understanding. 
+        Rely solely on information from the transcript; do not infer or add information not explicitly mentioned. 
+        Exclude any square brackets, tags, or timestamps from the summary.
         """
 
     def __init__(self, api_key: str, model_name: str = None,
@@ -149,6 +153,9 @@ class OpenAIAssistant(Assistant):
         """Submits a query to OpenAI with the stored context if one is provided.
         If a query is not provided, uses the default."""
 
+        if not self._clean_transcript:
+            raise NoContextError()
+
         input_param: ChatCompletionUserMessageParam = None
         search_param: ChatCompletionUserMessageParam = None
         ctx = []
@@ -157,6 +164,8 @@ class OpenAIAssistant(Assistant):
                 content=custom_query, role="user")
             input_param = search_param
             ctx = self._store.gather_context(input_param, 4096)
+            if not ctx:
+                raise NoContextError()
 
         else:
             ctx = [ChatCompletionUserMessageParam(
@@ -175,7 +184,7 @@ class OpenAIAssistant(Assistant):
                     [ChatCompletionUserMessageParam(role="assistant", content=res)])
             return res
         except Exception as e:
-            raise Exception(f"Failed to query OpenAI thread: {e}") from e
+            raise Exception(f"Failed to query OpenAI: {e}") from e
 
     def _compile_ctx_content(self, new_text: str,
                              metadata: list[str] = None) -> str:
