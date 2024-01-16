@@ -1,5 +1,6 @@
 import requests
 
+
 class SessionNotFoundException(Exception):
     def __init__(self, session_id: str):
         super().__init__(

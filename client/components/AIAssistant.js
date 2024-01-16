@@ -77,16 +77,23 @@ export const AIAssistant = () => {
     "app-message",
     useCallback((ev) => {
       const data = ev?.data;
-      if (data?.kind === "ai-summary") {
+      if (!data) return;
+      const kind = data.kind;
+      const err = data.error;
+      if (err) {
+        playAudioError();
+      }
+      const msg = err ?? data.data;
+      if (kind === "ai-summary") {
         setChatHistory((prev) => {
           const summaries = prev.filter(
             (m) => m.role === "assistant" && m.is_summary,
           );
           const lastSummary = summaries?.[summaries.length - 1];
           if (!lastSummary) {
-            return [...prev, createAssistantMessage(data.data, true)];
+            return [...prev, createAssistantMessage(msg, true)];
           }
-          if (lastSummary.content === data.data) {
+          if (lastSummary.content === msg) {
             /**
              * Last summary had the same content, so we can simply update the timestamp.
              */
@@ -95,7 +102,7 @@ export const AIAssistant = () => {
             /**
              * New summary is different, so we can just append it at the end.
              */
-            return [...prev, createAssistantMessage(data.data, true)];
+            return [...prev, createAssistantMessage(msg, true)];
           }
           /**
            * Find index of last summary.
@@ -113,8 +120,8 @@ export const AIAssistant = () => {
         playAudioMsg();
         return;
       }
-      if (data?.kind === "ai-query") {
-        setChatHistory((prev) => [...prev, createAssistantMessage(data.data)]);
+      if (kind === "ai-query") {
+        setChatHistory((prev) => [...prev, createAssistantMessage(msg)]);
         setIsPrompting(false);
         playAudioMsg();
         return;

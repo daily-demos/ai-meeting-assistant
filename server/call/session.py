@@ -185,15 +185,29 @@ class Session(EventHandler):
         task = data.get("task")
 
         answer: str = None
-        if task == "summary" or task == "query":
-            answer = asyncio.run(self._query_assistant(query))
-        elif task == "transcript":
-            answer = self._assistant.get_clean_transcript()
+        error: str = None
+        try:
+            if task == "summary" or task == "query":
+                answer = asyncio.run(self._query_assistant(query))
+            elif task == "transcript":
+                answer = self._assistant.get_clean_transcript()
+        except Exception as e:
+            self._logger.error("Failed to query assistant: %s", e)
+            error = "Sorry! I ran into an error. Please try again."
 
-        self._call_client.send_app_message({
+        msg_data = {
             "kind": f"ai-{task}",
-            "data": answer
-        }, participant=recipient, completion=self.on_app_message_sent)
+        }
+
+        if answer:
+            msg_data["data"] = answer
+
+        if error:
+            msg_data["error"] = error
+        self._call_client.send_app_message(
+            msg_data,
+            participant=recipient,
+            completion=self.on_app_message_sent)
 
     def on_left_meeting(self, _, error: str = None):
         """Cancels any ongoing shutdown timer and marks this session as destroyed"""
