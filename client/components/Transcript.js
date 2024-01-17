@@ -48,6 +48,13 @@ export const Transcript = ({ roomUrl }) => {
     }, "*");
   };
   useEffect(() => {
+    daily?.on("transcription-error", (ev) => {
+      console.error("Transcription failed. Attempting to restart", ev)
+      const lp = daily.participants().local;
+      if (lp.owner) {
+        daily.startTranscription();
+      }
+    })
     // Wait for a single participant joined event
     // to request transcript the first time local user joins.
     // Using this instead of joined-meeting to account for

@@ -63,11 +63,12 @@ class OpenAIAssistant(Assistant):
 
             1. Key discussion points written as bullet points
             2. Decisions made written as bullet points
-            3. Action items assigned written as bullet points
+            3. Concerete action items assigned by and to participants written as bullet points
 
-        Keep the summary within 12 sentences, ensuring it captures the 3 sections of the conversation. 
+        Keep the summary within 8 sentences, ensuring it captures the 3 sections of the conversation. 
         Structure it in clear, digestible paragraphs for easy understanding. 
         Rely solely on information from the transcript; do not infer or add information not explicitly mentioned. 
+        Do not invent action items that were not explicitly mentioned. 
         Exclude any square brackets, tags, or timestamps from the summary.
         """
 

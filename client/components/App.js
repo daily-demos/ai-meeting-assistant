@@ -189,7 +189,7 @@ export default function App() {
             </p>
             <div>
               <div id="error" style={{color: 'red'}}></div>
-              <form onSubmit={handleSubmit} style={{ flexDirection: "column" }}>
+              <form onSubmit={handleSubmit} style={{ flexDirection: "column", width: "200px" }}>
                 <input
                   readOnly={isJoining}
                   type="url"
@@ -209,11 +209,12 @@ export default function App() {
                   placeholder="OpenAI API key"
                 />
                 <span>
-                  <label htmlFor="wantBotToken">Give bot a meeting token</label>
+                  <label htmlFor="wantBotToken">Give bot a meeting token (needed if room is private)</label>
                   <input
                     readOnly={isJoining}
                     type="checkbox"
                     name="wantBotToken"
+                    defaultChecked={true}
                   />
                 </span>
                 <button disabled={isJoining} type="submit">
