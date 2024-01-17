@@ -112,43 +112,44 @@ class OpenAIAssistant(Assistant):
         # is running at a time.
         self._clean_transcript_running = True
 
-        if len(self._raw_context) == 0:
-            self._clean_transcript_running = False
-            raise NoContextError()
-
-        # How many transcript lines to process
-        to_fetch = self._transcript_batch_size
-
-        to_process = []
-        ctx = self._raw_context
-
-        # Fetch the next batch of transcript lines
-        while to_fetch > 0 and ctx:
-            next_line = ctx.popleft()
-            to_process.append(next_line)
-            # If we're at the end of the batch size but did not
-            # get what appears to be a full sentence, just keep going.
-            if to_fetch == 1 and "." not in next_line.content:
-                continue
-            to_fetch -= 1
-
-        messages = to_process + [self._default_transcript_prompt]
         try:
-            loop = asyncio.get_event_loop()
-            future = loop.run_in_executor(
-                None, self._make_openai_request, messages)
-            res = await future
-            self._clean_transcript += f"\n\n{res}"
-            self._store.add(
-                [ChatCompletionUserMessageParam(role="user", content=res)])
+            if len(self._raw_context) == 0:
+                raise NoContextError()
+
+            # How many transcript lines to process
+            to_fetch = self._transcript_batch_size
+
+            to_process = []
+            ctx = self._raw_context
+
+            # Fetch the next batch of transcript lines
+            while to_fetch > 0 and ctx:
+                next_line = ctx.popleft()
+                to_process.append(next_line)
+                # If we're at the end of the batch size but did not
+                # get what appears to be a full sentence, just keep going.
+                if to_fetch == 1 and "." not in next_line.content:
+                    continue
+                to_fetch -= 1
+
+            messages = to_process + [self._default_transcript_prompt]
+            try:
+                loop = asyncio.get_event_loop()
+                future = loop.run_in_executor(
+                    None, self._make_openai_request, messages)
+                res = await future
+                self._clean_transcript += f"\n\n{res}"
+                self._store.add(
+                    [ChatCompletionUserMessageParam(role="user", content=res)])
+            except Exception as e:
+                # Re-insert failed items into the queue,
+                # to make sure they do not get lost on next attempt.
+                for item in reversed(to_process):
+                    self._raw_context.appendleft(item)
+                raise Exception(f"Failed to query OpenAI: {e}") from e
+        finally:
+            # Always reset transcript run state
             self._clean_transcript_running = False
-        except Exception as e:
-            # Re-insert failed items into the queue,
-            # to make sure they do not get lost on next attempt.
-            for item in reversed(to_process):
-                self._raw_context.appendleft(item)
-            self._clean_transcript_running = False
-            raise Exception(f"Failed to query OpenAI: {e}") from e
 
     async def query(self, custom_query: str = None) -> str:
         """Submits a query to OpenAI with the stored context if one is provided.
@@ -208,8 +209,12 @@ class OpenAIAssistant(Assistant):
         for choice in res.choices:
             reason = choice.finish_reason
             if reason == "stop" or reason == "length":
-                answer = choice.message.content
-                return answer
+                try:
+                    answer = choice.message.content
+                    return answer
+                except Exception as e:
+                    raise Exception(
+                        f"Failed to extract answer from OpenAI choice: {choice} (Response: {res})") from e
         raise Exception(
             "No usable choice found in OpenAI response: %s",
             res.choices)
