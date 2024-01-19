@@ -57,7 +57,7 @@ async def create_session():
     if not room_url or not openai_api_key:
         return process_error(err_msg, 400)
 
-    if probe_api_key(openai_api_key) is False:
+    if await probe_api_key(openai_api_key) is False:
         return process_error("Invalid OpenAI API key", 401)
 
     openai_model_name = data.get("openai_model_name")
@@ -66,8 +66,7 @@ async def create_session():
     c = BotConfig(openai_api_key, openai_model_name, room_url, meeting_token)
     session = operator.create_session(c)
     if session:
-        task = threading.Thread(target=session.start)
-        task.start()
+        app.add_background_task(session.start)
     return jsonify({
         "room_url": room_url
     }), 200

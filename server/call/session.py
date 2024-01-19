@@ -17,11 +17,10 @@ from logging import Logger
 from typing import Mapping, Any
 from urllib.parse import urlparse
 
-from daily import Daily, EventHandler, CallClient
-
 from server.config import BotConfig, get_headless_config
 from server.llm.openai_assistant import OpenAIAssistant
 from server.llm.assistant import Assistant, NoContextError
+from dailyai.services.daily_transport_service import DailyTransportService
 
 
 @dataclasses.dataclass
@@ -39,16 +38,17 @@ class Summary:
     retrieved_at: time.time()
 
 
-class Session(EventHandler):
+class Session():
     """Class representing a single meeting happening within a Daily room."""
 
     _config: BotConfig
     _assistant: Assistant
     _summary: Summary | None
+    _service: DailyTransportService | None
 
     # Daily-related properties
     _id: str | None
-    _call_client: CallClient | None
+    _service: DailyTransportService | None
     _room: Room
 
     # Shutdown-related properties
@@ -69,12 +69,6 @@ class Session(EventHandler):
             self._logger)
         self._logger.info("Initialized session %s", self._room.name)
 
-    def start(self):
-        # Start session on new thread
-        task = threading.Thread(target=self._run)
-        task.start()
-        while not self.is_destroyed:
-            time.sleep(1)
 
     @property
     def room_url(self) -> str:
@@ -96,23 +90,38 @@ class Session(EventHandler):
         room = Room(url=room_url, name=room_name, token=token)
         return room
 
-    def _run(self):
+    async def start(self):
         """Waits for at least one person to join the associated Daily room,
         then joins, starts transcription, and begins registering context."""
-        call_client = CallClient(event_handler=self)
-        self._call_client = call_client
         room = self._room
+        transport = DailyTransportService(room.url,
+                                          room.token,
+                                          "Daily AI Assistant")
+        transport.mic_enabled = False
+        transport.camera_enabled = False
+
+        transport.add_event_handler("on_participant_joined", self.on_participant_joined)
+        transport.add_event_handler("on_participant_left", self.on_participant_left)
+
+        transport.add_event_handler(
+            "on_transcription_stopped", self.on_transcription_stopped)
+        transport.add_event_handler("on_transcription_message", self.on_transcription_message)
+        transport.add_event_handler("on_transcription_error", self.on_transcription_error)
+        transport.add_event_handler("on_app_message", self.on_app_message)
+
+        transport.add_event_handler("on_call_state_updated", self.on_call_state_updated)
+        transport.add_event_handler("on_error", self.on_error)
+        self._service = transport
+
         self._logger.info("Joining Daily room %s", room.url)
-        call_client.join(
-            room.url,
-            room.token,
-            completion=self.on_joined_meeting)
+        await self._service.run()
 
     async def _generate_clean_transcript(self) -> bool:
         """Generates a clean transcript from the raw context."""
         if self._is_destroyed:
             return True
         try:
+            self._logger.info("Generating clean transcript")
             await self._assistant.cleanup_transcript()
         except Exception as e:
             self._logger.warning(
@@ -152,7 +161,7 @@ class Session(EventHandler):
             except Exception as e:
                 self._logger.error(
                     "Failed to query assistant: %s", e)
-                answer = ("Something went wrong while generating the summary. Please check the server logs.")
+                answer = ("Something went wrong while generating the answer. Please check the server logs.")
 
         return answer
 
@@ -162,8 +171,8 @@ class Session(EventHandler):
             self._logger.error("Failed to send app message: %s", error)
 
     def on_app_message(self,
-                       message: str,
-                       sender: str):
+                       wat,
+                       message: str, sender: str):
         """Callback invoked when a Daily app message is received."""
         # TODO message appears to be a dict when our docs say str.
         # For now dumping it to a JSON string and parsing it back out,
@@ -204,7 +213,8 @@ class Session(EventHandler):
 
         if error:
             msg_data["error"] = error
-        self._call_client.send_app_message(
+        self._logger.info("sending app message. data: %s; recipient: %s", msg_data, recipient)
+        self._service.client.send_app_message(
             msg_data,
             participant=recipient,
             completion=self.on_app_message_sent)
@@ -233,20 +243,17 @@ class Session(EventHandler):
         self._assistant.destroy()
         self._is_destroyed = True
 
-    def on_joined_meeting(self, join_data, error):
+    def on_joined_meeting(self):
         """Callback invoked when the bot has joined the Daily room."""
-        if error:
-            raise Exception("failed to join meeting", error)
+     
         self._logger.info("Bot joined meeting %s", self._room.url)
-        self._id = join_data["participants"]["local"]["id"]
+        self._id = self._service.my_participant_id
 
         # TODO (Liza): Remove this when transcription started events are invoked
         # as expected
         threading.Thread(
             target=self.start_transcript_polling,
             daemon=True).start()
-
-        self._call_client.set_user_name("Daily AI Assistant")
 
         # Check whether the bot is actually the only one in the call, in which case
         # the shutdown timer should start. The shutdown will be cancelled if
@@ -266,6 +273,7 @@ class Session(EventHandler):
 
     def start_transcript_polling(self):
         """Starts an asyncio event loop and schedules generate_clean_transcript to run every 15 seconds."""
+        self._logger.info("Starting transcript polling")
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
         loop.run_until_complete(
@@ -278,17 +286,17 @@ class Session(EventHandler):
     #    self._logger.info("Transcription started: %s", status)
     #    threading.Thread(target=self.start_transcript_polling, daemon=True).start()
 
-    def on_transcription_stopped(self, stopped_by: str, stopped_by_error: str):
+    def on_transcription_stopped(self, stopped_by: str, stopped_by_error: str, wat):
         self._logger.info(
             "Transcription stopped: %s (%s)",
             stopped_by,
             stopped_by_error)
 
-    def on_transcription_error(self, message):
+    def on_transcription_error(self, wat, message):
         """Callback invoked when a transcription error is received."""
         self._logger.error("Received transcription error: %s", message)
 
-    def on_transcription_message(self, message):
+    def on_transcription_message(self, wat, message):
         """Callback invoked when a transcription message is received."""
         user_name = f'Name: {message["user_name"]}'
         text = message["text"]
@@ -296,7 +304,7 @@ class Session(EventHandler):
         metadata = [user_name, 'voice', f"Sent at {timestamp}"]
         self._assistant.register_new_context(text, metadata)
 
-    def on_participant_joined(self, participant):
+    def on_participant_joined(self, participant, wat):
         # As soon as someone joins, stop shutdown process if one is in progress
         if self._shutdown_timer:
             self._logger.info("Participant joined - cancelling shutdown.")
@@ -304,23 +312,29 @@ class Session(EventHandler):
 
     def on_participant_left(self,
                             participant,
-                            reason):
+                            reason, wat):
         """Callback invoked when a participant leaves the Daily room."""
         self.maybe_start_shutdown()
 
-    def on_call_state_updated(self, state: Mapping[str, Any]) -> None:
+    def on_call_state_updated(self, _, state: Mapping[str, Any]) -> None:
         """Invoked when the Daily call state has changed"""
         self._logger.info(
             "Call state updated for session %s: %s",
             self._room.url,
             state)
-        if state == "left" and not self._is_destroyed:
-            self._logger.info("Call state left, destroying immediately")
-            self.on_left_meeting(None)
+        
+        if not self._is_destroyed:
+            if state == "left":
+                self._logger.info("Call state left, destroying immediately")
+                self.on_left_meeting(None)
+            elif state == "joined":
+                self._logger.info("Joined room: %s", self._room.url)
+                self.on_joined_meeting()
+
 
     def maybe_start_shutdown(self) -> bool:
         """Checks if the session should be shut down, and if so, starts the shutdown process."""
-        count = self._call_client.participant_counts()['present']
+        count = self._service.client.participant_counts()['present']
         self._logger.info(
             "Participant count: %s", count)
 
@@ -344,7 +358,7 @@ class Session(EventHandler):
             threading.active_count())
 
         self.cancel_shutdown_timer()
-        self._call_client.leave(self.on_left_meeting)
+        self._service.client.leave(self.on_left_meeting)
 
     def cancel_shutdown_timer(self):
         """Cancels the live shutdown timer"""
@@ -380,17 +394,13 @@ def bot_cleanup(session: Session):
         print("Waiting for bot to leave the call")
         time.sleep(1)
 
-    Daily.deinit()
-
 
 def main():
     config = get_headless_config()
 
-    Daily.init()
-
     session = Session(config)
     atexit.register(bot_cleanup, session)
-    session.start()
+    asyncio.run(session.start())
 
 
 if __name__ == "__main__":

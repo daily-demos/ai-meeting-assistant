@@ -3,25 +3,21 @@ import asyncio
 from collections import deque
 import logging
 
-from openai import OpenAI
 from openai.types.chat import ChatCompletionMessageParam, ChatCompletionSystemMessageParam, \
     ChatCompletionUserMessageParam
 
 from server.llm.assistant import Assistant, NoContextError
 from server.store.memory import MemoryStore
+from dailyai.services.open_ai_services import OpenAILLMService
 
-
-def probe_api_key(api_key: str) -> bool:
+async def probe_api_key(api_key: str) -> bool:
     """Probes the OpenAI API with the provided key to ensure it is valid."""
     try:
-        client = OpenAI(api_key=api_key)
-        client.chat.completions.create(
-            model="gpt-3.5-turbo",
-            messages=[
+        client = OpenAILLMService(api_key=api_key, model="gpt-3.5-turbo")
+        await client.get_response(stream=False, messages=[
                 ChatCompletionUserMessageParam(
                     content="This is a test",
-                    role="user")],
-        )
+                    role="user")])
         return True
     except Exception as e:
         print(f"Failed to probe OpenAI API key: {e}")
@@ -30,8 +26,7 @@ def probe_api_key(api_key: str) -> bool:
 
 class OpenAIAssistant(Assistant):
     """Class that implements assistant features using the OpenAI API"""
-    _client: OpenAI = None
-
+    _service: OpenAILLMService = None
     _model_name: str = None
     _logger: logging.Logger = None
 
@@ -84,10 +79,8 @@ class OpenAIAssistant(Assistant):
         if not model_name:
             model_name = "gpt-4-1106-preview"
         self._model_name = model_name
-        self._client = OpenAI(
-            api_key=api_key,
-        )
-        self._store = MemoryStore(self._client)
+        self._service = OpenAILLMService(api_key=api_key, model=model_name)
+        self._store = MemoryStore(self._service)
 
     def destroy(self):
         """Destroys the assistant and relevant resources"""
@@ -134,12 +127,9 @@ class OpenAIAssistant(Assistant):
 
             messages = to_process + [self._default_transcript_prompt]
             try:
-                loop = asyncio.get_event_loop()
-                future = loop.run_in_executor(
-                    None, self._make_openai_request, messages)
-                res = await future
+                res = await self._make_openai_request(messages)
                 self._clean_transcript += f"\n\n{res}"
-                self._store.add(
+                await self._store.add(
                     [ChatCompletionUserMessageParam(role="user", content=res)])
             except Exception as e:
                 # Re-insert failed items into the queue,
@@ -165,7 +155,7 @@ class OpenAIAssistant(Assistant):
             search_param = ChatCompletionUserMessageParam(
                 content=custom_query, role="user")
             input_param = search_param
-            ctx = self._store.gather_context(input_param, 4096)
+            ctx = await self._store.gather_context(input_param, 4096)
             if not ctx:
                 raise NoContextError()
 
@@ -177,12 +167,9 @@ class OpenAIAssistant(Assistant):
             
         final_ctx = ctx + [input_param]
         try:
-            loop = asyncio.get_event_loop()
-            future = loop.run_in_executor(
-                None, self._make_openai_request, final_ctx)
-            res = await future
+            res = await self._make_openai_request(final_ctx)
             if not custom_query:
-                self._store.add(
+                await self._store.add(
                     [ChatCompletionUserMessageParam(role="assistant", content=res)])
             return res
         except Exception as e:
@@ -197,19 +184,17 @@ class OpenAIAssistant(Assistant):
         content += new_text
         return content
 
-    def _make_openai_request(
+    async def _make_openai_request(
             self, messages: list[ChatCompletionMessageParam]) -> str:
         """Makes a chat completion request to OpenAI and returns the response."""
 
-        res = self._client.chat.completions.create(
-            model=self._model_name,
-            messages=messages,
-        )
-
+        res = await self._service.get_response(messages=messages, stream=False)
+        self._logger.info("openai response: %s", res)
         for choice in res.choices:
             reason = choice.finish_reason
             if reason == "stop" or reason == "length":
                 try:
+                    
                     answer = choice.message.content
                     return answer
                 except Exception as e:
