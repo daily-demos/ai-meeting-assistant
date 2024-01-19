@@ -172,7 +172,7 @@ class Session():
             self._logger.error("Failed to send app message: %s", error)
 
     async def on_app_message(self,
-                       wat,
+                       _,
                        message: str, sender: str):
         """Callback invoked when a Daily app message is received."""
         # TODO message appears to be a dict when our docs say str.
@@ -286,17 +286,17 @@ class Session():
     #    self._logger.info("Transcription started: %s", status)
     #    threading.Thread(target=self.start_transcript_polling, daemon=True).start()
 
-    def on_transcription_stopped(self, stopped_by: str, stopped_by_error: str, wat):
+    def on_transcription_stopped(self, stopped_by: str, _, stopped_by_error: str):
         self._logger.info(
             "Transcription stopped: %s (%s)",
             stopped_by,
             stopped_by_error)
 
-    def on_transcription_error(self, wat, message):
+    def on_transcription_error(self, _, message):
         """Callback invoked when a transcription error is received."""
         self._logger.error("Received transcription error: %s", message)
 
-    def on_transcription_message(self, wat, message):
+    def on_transcription_message(self, _, message):
         """Callback invoked when a transcription message is received."""
         user_name = f'Name: {message["user_name"]}'
         text = message["text"]
@@ -304,15 +304,16 @@ class Session():
         metadata = [user_name, 'voice', f"Sent at {timestamp}"]
         self._assistant.register_new_context(text, metadata)
 
-    def on_participant_joined(self, participant, wat):
+    def on_participant_joined(self, _, _participant):
         # As soon as someone joins, stop shutdown process if one is in progress
         if self._shutdown_timer:
             self._logger.info("Participant joined - cancelling shutdown.")
             self.cancel_shutdown_timer()
 
     def on_participant_left(self,
-                            participant,
-                            reason, wat):
+                            _,
+                            _participant,
+                            _reason):
         """Callback invoked when a participant leaves the Daily room."""
         self.maybe_start_shutdown()
 
