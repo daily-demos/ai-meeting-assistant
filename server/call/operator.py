@@ -3,7 +3,6 @@ querying functionality to HTTP requesters."""
 import threading
 
 import polling2
-from daily import Daily
 from server.config import BotConfig
 from server.call.session import Session
 
@@ -17,7 +16,6 @@ class Operator():
         self._is_shutting_down = False
         self._lock = threading.Lock()
         self._sessions = []
-        Daily.init()
 
         t = threading.Thread(target=self.cleanup)
         t.start()
@@ -58,7 +56,6 @@ class Operator():
         if all sessions are gone and the operator is shutting down."""
         with self._lock:
             if self._is_shutting_down and len(self._sessions) == 0:
-                Daily.deinit()
                 return True
 
             # Check each session to see if it's been destroyed.

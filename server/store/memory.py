@@ -1,27 +1,28 @@
 import threading
 import time
 import numpy
-from openai import OpenAI
 from openai.types.embedding import Embedding
 from openai.types.chat import ChatCompletionMessageParam, ChatCompletionUserMessageParam
 import textwrap
 import tiktoken
+from dailyai.services.open_ai_services import OpenAILLMService
+
 
 
 class MemoryStore:
-    _client: OpenAI
+    _service: OpenAILLMService
     _embeddings: list[Embedding]
     _params: list[ChatCompletionMessageParam]
     _embedding_model = "text-embedding-ada-002"
     _lock: threading.Lock
 
-    def __init__(self, client: OpenAI):
+    def __init__(self, service: OpenAILLMService):
         self._lock = threading.Lock()
-        self._client = client
+        self._service = service
         self._embeddings = []
         self._params = []
 
-    def add(self, params: list[ChatCompletionMessageParam]):
+    async def add(self, params: list[ChatCompletionMessageParam]):
         """Stores messages and embeddings for context generation."""
         new_params = []
         for param in params:
@@ -36,8 +37,7 @@ class MemoryStore:
         input: list[str] = []
         for doc in new_params:
             input.append(str(doc))
-
-        embeddings = self._client.embeddings.create(
+        embeddings = await self._service.client.embeddings.create(
             input=input,
             model=self._embedding_model
         )
@@ -49,17 +49,18 @@ class MemoryStore:
                 raise Exception(
                     "Something went wrong, params and embeddings are not the same length.")
 
-    def gather_context(self, input: ChatCompletionUserMessageParam,
+    async def gather_context(self, input: ChatCompletionUserMessageParam,
                        max_tokens: int = 120000) -> list[ChatCompletionMessageParam]:
         """Queries store for most contextually relevant params."""
         with self._lock:
             if self._params == []:
                 return []
 
-            input_embedding = self._client.embeddings.create(
+            embeddings = await self._service.client.embeddings.create(
                 input=str(input),
                 model=self._embedding_model
-            ).data[0].embedding
+            )
+            input_embedding = embeddings.data[0].embedding
 
             sims: list[tuple[float, int]] = []
             for i, embedding in enumerate(self._embeddings):
