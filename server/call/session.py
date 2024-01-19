@@ -96,7 +96,8 @@ class Session():
         room = self._room
         transport = DailyTransportService(room.url,
                                           room.token,
-                                          "Daily AI Assistant")
+                                          "Daily AI Assistant",
+                                          60 * 24)
         transport.mic_enabled = False
         transport.camera_enabled = False
 
@@ -170,7 +171,7 @@ class Session():
         if error:
             self._logger.error("Failed to send app message: %s", error)
 
-    def on_app_message(self,
+    async def on_app_message(self,
                        wat,
                        message: str, sender: str):
         """Callback invoked when a Daily app message is received."""
@@ -197,7 +198,7 @@ class Session():
         error: str = None
         try:
             if task == "summary" or task == "query":
-                answer = asyncio.run(self._query_assistant(query))
+                answer = await self._query_assistant(query)
             elif task == "transcript":
                 answer = self._assistant.get_clean_transcript()
         except Exception as e:
@@ -213,7 +214,6 @@ class Session():
 
         if error:
             msg_data["error"] = error
-        self._logger.info("sending app message. data: %s; recipient: %s", msg_data, recipient)
         self._service.client.send_app_message(
             msg_data,
             participant=recipient,

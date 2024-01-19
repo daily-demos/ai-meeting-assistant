@@ -60,9 +60,6 @@ class MemoryStore:
                 input=str(input),
                 model=self._embedding_model
             )
-
-            print("EMBEDDINGS:", embeddings)
-
             input_embedding = embeddings.data[0].embedding
 
             sims: list[tuple[float, int]] = []

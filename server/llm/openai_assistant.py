@@ -189,7 +189,6 @@ class OpenAIAssistant(Assistant):
         """Makes a chat completion request to OpenAI and returns the response."""
 
         res = await self._service.get_response(messages=messages, stream=False)
-        self._logger.info("openai response: %s", res)
         for choice in res.choices:
             reason = choice.finish_reason
             if reason == "stop" or reason == "length":
