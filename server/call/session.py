@@ -97,7 +97,8 @@ class Session():
         transport = DailyTransportService(room.url,
                                           room.token,
                                           "Daily AI Assistant",
-                                          60 * 24)
+                                          60 * 24,
+                                          0)
         transport.mic_enabled = False
         transport.camera_enabled = False
 
