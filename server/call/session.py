@@ -290,10 +290,10 @@ class Session(EventHandler):
 
     def on_transcription_message(self, message):
         """Callback invoked when a transcription message is received."""
-        user_name = message["user_name"]
+        user_name = f'Name: {message["user_name"]}'
         text = message["text"]
         timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')
-        metadata = [user_name, 'voice', timestamp]
+        metadata = [user_name, 'voice', f"Sent at {timestamp}"]
         self._assistant.register_new_context(text, metadata)
 
     def on_participant_joined(self, participant):
