@@ -76,7 +76,6 @@ class MemoryStore:
                 doc = self._params[i]
                 tokens_used = count_tokens(doc.get('content'))
                 if remaining_tokens - tokens_used < 0:
-                    print("Token limit reached")
                     break
                 remaining_tokens -= tokens_used
                 relevant_docs.append(doc)
