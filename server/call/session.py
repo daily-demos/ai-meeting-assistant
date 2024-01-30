@@ -290,7 +290,14 @@ class Session(EventHandler):
 
     def on_transcription_message(self, message):
         """Callback invoked when a transcription message is received."""
-        user_name = f'Name: {message["user_name"]}'
+        try:
+            participant_id = message["participantId"]
+            participant = self._call_client.participants()[participant_id]
+            participant_user_name = participant["info"]["userName"]
+            user_name = f'Name: {participant_user_name}'
+        except Exception as e:
+            self._logger.error("Failed to get speaker's name: %s", e)
+            user_name = "Name: Unknown"
         text = message["text"]
         timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')
         metadata = [user_name, 'voice', f"Sent at {timestamp}"]
