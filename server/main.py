@@ -1,5 +1,6 @@
 """This module defines all the routes for the Daily AI assistant server."""
 import json
+import os
 import sys
 import threading
 import traceback
@@ -61,6 +62,8 @@ async def create_session():
         return process_error("Invalid OpenAI API key", 401)
 
     openai_model_name = data.get("openai_model_name")
+    if not openai_model_name:
+        openai_model_name = os.environ.get("OPENAI_MODEL_NAME")
     meeting_token = data.get("meeting_token")
 
     c = BotConfig(openai_api_key, openai_model_name, room_url, meeting_token)
