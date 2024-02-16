@@ -11,9 +11,10 @@ import os.path
 import sys
 import threading
 import time
+from threading import Thread
 from asyncio import Future
 from datetime import datetime
-from logging import Logger
+from logging import Handler, Logger
 from typing import Mapping, Any
 from urllib.parse import urlparse
 
@@ -45,6 +46,12 @@ class Session(EventHandler):
     _config: BotConfig
     _assistant: Assistant
     _summary: Summary | None
+    _session_thread: Thread
+    _transcript_thread: Thread
+
+    # Logging
+    _logger: Logger
+    _log_handler: Handler
 
     # Daily-related properties
     _id: str | None
@@ -53,28 +60,44 @@ class Session(EventHandler):
 
     # Shutdown-related properties
     _is_destroyed: bool
+    _is_shutting_down: bool
     _shutdown_timer: threading.Timer | None = None
 
     def __init__(self, config: BotConfig):
         super().__init__()
         self._is_destroyed = False
+        self._is_shutting_down = False
         self._config = config
         self._summary = None
         self._id = None
+
         self._room = self._get_room_config(self._config.daily_room_url)
-        self._logger = self.create_logger(self._room.name)
+        self._logger = logging.getLogger(self._room.name)
+        self._log_handler = self.create_log_handler(self._logger)
+
+        # Create Daily client and tell it to ignore incoming audio and video
+        # since we don't use that.
+        self._call_client = CallClient(event_handler=self)
+        self._call_client.update_subscription_profiles({
+            "base": {
+                "camera": "unsubscribed",
+                "microphone": "unsubscribed"
+            }
+        })
+
         self._assistant = OpenAIAssistant(
             config.openai_api_key,
             config.openai_model_name,
             self._logger)
+
+        self._session_thread = threading.Thread(target=self._run)
+        self._transcript_thread = threading.Thread(
+            target=self._start_transcript_polling, daemon=True)
         self._logger.info("Initialized session %s", self._room.name)
 
     def start(self):
-        # Start session on new thread
-        task = threading.Thread(target=self._run)
-        task.start()
-        while not self.is_destroyed:
-            time.sleep(1)
+        # Start running the thread
+        self._session_thread.start()
 
     @property
     def room_url(self) -> str:
@@ -99,25 +122,25 @@ class Session(EventHandler):
     def _run(self):
         """Waits for at least one person to join the associated Daily room,
         then joins, starts transcription, and begins registering context."""
-        call_client = CallClient(event_handler=self)
-        self._call_client = call_client
         room = self._room
         self._logger.info("Joining Daily room %s", room.url)
-        call_client.join(
+        self._call_client.join(
             room.url,
             room.token,
             completion=self.on_joined_meeting)
+        while not self._is_shutting_down:
+            time.sleep(1)
 
     async def _generate_clean_transcript(self) -> bool:
         """Generates a clean transcript from the raw context."""
-        if self._is_destroyed:
-            return True
+        if self._is_shutting_down:
+            return False
         try:
             await self._assistant.cleanup_transcript()
         except Exception as e:
             self._logger.warning(
                 "Failed to generate clean transcript: %s", e)
-        return False
+        return True
 
     async def _query_assistant(self, custom_query: str = None) -> Future[str]:
         """Queries the configured assistant with either the given query, or the
@@ -147,12 +170,14 @@ class Session(EventHandler):
                     self._summary = Summary(
                         content=answer, retrieved_at=time.time())
             except NoContextError:
-                answer = ("I don't have any context saved yet. Please speak to add some context or "
-                          "confirm that transcription is enabled.")
+                answer = (
+                    "I don't have any context saved yet. Please speak to add some context or "
+                    "confirm that transcription is enabled.")
             except Exception as e:
                 self._logger.error(
                     "Failed to query assistant: %s", e)
-                answer = ("Something went wrong while generating the summary. Please check the server logs.")
+                answer = (
+                    "Something went wrong while generating the summary. Please check the server logs.")
 
         return answer
 
@@ -223,15 +248,7 @@ class Session(EventHandler):
                 "Participant left meeting - cancelling shutdown.")
             self.cancel_shutdown_timer()
 
-        # Similar to above, if this session has already been destroyed for any other reason,
-        # Don't do this again.
-        if self._is_destroyed:
-            self._logger.info("Session %s already destroyed.", self._room.url)
-            return
-
         self._logger.info("Left meeting %s", self._room.url)
-        self._assistant.destroy()
-        self._is_destroyed = True
 
     def on_joined_meeting(self, join_data, error):
         """Callback invoked when the bot has joined the Daily room."""
@@ -239,12 +256,6 @@ class Session(EventHandler):
             raise Exception("failed to join meeting", error)
         self._logger.info("Bot joined meeting %s", self._room.url)
         self._id = join_data["participants"]["local"]["id"]
-
-        # TODO (Liza): Remove this when transcription started events are invoked
-        # as expected
-        threading.Thread(
-            target=self.start_transcript_polling,
-            daemon=True).start()
 
         self._call_client.set_user_name("Daily AI Assistant")
 
@@ -257,26 +268,23 @@ class Session(EventHandler):
         """Callback invoked when an error is received."""
         self._logger.error("Received meeting error: %s", message)
 
-    async def poll_async_func(self, async_func, interval):
+    async def _poll_async_func(self, async_func, interval):
         while True:
-            await async_func()
-            if self._is_destroyed:
+            if not await async_func():
                 return
             await asyncio.sleep(interval)
 
-    def start_transcript_polling(self):
+    def _start_transcript_polling(self):
         """Starts an asyncio event loop and schedules generate_clean_transcript to run every 15 seconds."""
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
         loop.run_until_complete(
-            self.poll_async_func(
+            self._poll_async_func(
                 self._generate_clean_transcript, 15))
 
-    # TODO: (Liza) Uncomment this when transcription events are properly invoked
-    # if the transcription is starte before the bot joins.
-    # def on_transcription_started(self, status):
-    #    self._logger.info("Transcription started: %s", status)
-    #    threading.Thread(target=self.start_transcript_polling, daemon=True).start()
+    def on_transcription_started(self, status):
+        self._logger.info("Transcription started: %s", status)
+        self._transcript_thread.start()
 
     def on_transcription_stopped(self, stopped_by: str, stopped_by_error: str):
         self._logger.info(
@@ -321,7 +329,7 @@ class Session(EventHandler):
             "Call state updated for session %s: %s",
             self._room.url,
             state)
-        if state == "left" and not self._is_destroyed:
+        if state == "left" and not self._is_shutting_down:
             self._logger.info("Call state left, destroying immediately")
             self.on_left_meeting(None)
 
@@ -339,13 +347,16 @@ class Session(EventHandler):
 
         # If there are no present participants left, wait 1 minute and
         # start shutdown.
-        self._shutdown_timer = threading.Timer(60.0, self.shutdown)
-        self._shutdown_timer.start()
+        if not self._shutdown_timer:
+            self._shutdown_timer = threading.Timer(60.0, self.shutdown)
+            self._shutdown_timer.start()
         return True
 
     def shutdown(self):
         """Shuts down the session, leaving the Daily room, invoking the shutdown callback,
         and cancelling any pending Futures"""
+        self._is_shutting_down = True
+
         self._logger.info(
             f"Session {self._id} shutting down. Active threads: %s",
             threading.active_count())
@@ -353,32 +364,46 @@ class Session(EventHandler):
         self.cancel_shutdown_timer()
         self._call_client.leave(self.on_left_meeting)
 
+        self._session_thread.join()
+        try:
+            self._transcript_thread.join()
+        except Exception as e:
+            self._logger.warning("Failed to join transcript thread: %s", e)
+
+        self._assistant.destroy()
+
+        self._logger.info(
+            f"Session {self._id} completely shut down. Active threads: %s",
+            threading.active_count())
+
+        self._logger.removeHandler(self._log_handler)
+
+        self._is_destroyed = True
+
     def cancel_shutdown_timer(self):
         """Cancels the live shutdown timer"""
         if self._shutdown_timer:
             self._shutdown_timer.cancel()
             self._shutdown_timer = None
 
-    def create_logger(self, name) -> Logger:
+    def create_log_handler(self, logger) -> Handler:
         """Creates a logger for this session"""
-        logger = logging.getLogger(name)
-        logger.setLevel(logging.DEBUG)
-
         formatter = logging.Formatter(
             '%(asctime)s -[%(threadName)s-%(thread)s] - %(levelname)s - %(message)s')
 
         log_file_path = self._config.get_log_file_path(self._room.name)
         if log_file_path:
-            file_handler = logging.FileHandler(
-                self._config.get_log_file_path(self._room.name))
-            file_handler.setFormatter(formatter)
-            logger.addHandler(file_handler)
+            handler = logging.FileHandler(log_file_path)
         else:
-            stream_handler = logging.StreamHandler(sys.stdout)
-            stream_handler.setFormatter(formatter)
-            logger.addHandler(stream_handler)
+            handler = logging.StreamHandler(sys.stdout)
 
-        return logger
+        handler.setLevel(logging.DEBUG)
+        handler.setFormatter(formatter)
+
+        logger.setLevel(logging.DEBUG)
+        logger.addHandler(handler)
+
+        return handler
 
 
 def bot_cleanup(session: Session):
@@ -386,8 +411,6 @@ def bot_cleanup(session: Session):
     while not session.is_destroyed:
         print("Waiting for bot to leave the call")
         time.sleep(1)
-
-    Daily.deinit()
 
 
 def main():
@@ -398,6 +421,8 @@ def main():
     session = Session(config)
     atexit.register(bot_cleanup, session)
     session.start()
+
+    Daily.deinit()
 
 
 if __name__ == "__main__":
