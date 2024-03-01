@@ -363,6 +363,7 @@ class Session(EventHandler):
 
         self.cancel_shutdown_timer()
         self._call_client.leave(self.on_left_meeting)
+        self._call_client.release()
 
         self._session_thread.join()
         try:
