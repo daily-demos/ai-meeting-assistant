@@ -181,7 +181,7 @@ class Session(EventHandler):
 
         return answer
 
-    def on_app_message_sent(self, _, error: str = None):
+    def on_app_message_sent(self, error: str = None):
         """Callback invoked when an app message is sent."""
         if error:
             self._logger.error("Failed to send app message: %s", error)
@@ -234,7 +234,7 @@ class Session(EventHandler):
             participant=recipient,
             completion=self.on_app_message_sent)
 
-    def on_left_meeting(self, _, error: str = None):
+    def on_left_meeting(self, error: str = None):
         """Cancels any ongoing shutdown timer and marks this session as destroyed"""
         if error:
             self._logger.error(
