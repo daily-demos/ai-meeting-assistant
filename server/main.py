@@ -6,6 +6,8 @@ import threading
 import traceback
 from os.path import join, dirname, abspath
 
+from daily import Daily
+
 from quart.cli import load_dotenv
 from quart_cors import cors
 from quart import Quart, jsonify, Response, request
@@ -25,12 +27,18 @@ cors(app, allow_origin="*", allow_headers=["content-type"])
 operator = Operator()
 
 
+@app.before_serving
+async def init():
+    Daily.init()
+
+
 @app.after_serving
 async def shutdown():
     """Stop all background tasks and cancel Futures"""
     operator.shutdown()
     for task in app.background_tasks:
         task.cancel()
+    Daily.deinit()
 
 
 @app.route('/', methods=['GET'])
@@ -69,8 +77,7 @@ async def create_session():
     c = BotConfig(openai_api_key, openai_model_name, room_url, meeting_token)
     session = operator.create_session(c)
     if session:
-        task = threading.Thread(target=session.start)
-        task.start()
+        session.start()
     return jsonify({
         "room_url": room_url
     }), 200
